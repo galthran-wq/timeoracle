@@ -13,15 +13,12 @@ from src.main import app
 from src.models.postgres.users import UserModel
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture
 async def engine():
     eng = create_async_engine(settings.postgres_url, poolclass=NullPool)
     async with eng.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield eng
-    async with eng.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
     await eng.dispose()
 
 
@@ -29,9 +26,8 @@ async def engine():
 async def cleanup(engine):
     yield
     async with engine.begin() as conn:
-        await conn.execute(text(
-            "TRUNCATE TABLE activity_events, users CASCADE"
-        ))
+        for table in reversed(Base.metadata.sorted_tables):
+            await conn.execute(text(f"TRUNCATE TABLE {table.name} CASCADE"))
 
 
 @pytest_asyncio.fixture
