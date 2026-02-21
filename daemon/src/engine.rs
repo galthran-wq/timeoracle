@@ -4,7 +4,7 @@ use crate::config::Config;
 use crate::error::Result;
 use crate::events::{ActivityEvent, WindowInfo};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, mpsc, watch};
 
 #[derive(Debug, Clone)]
@@ -63,6 +63,7 @@ pub async fn run_with(
 ) -> Result<()> {
     let mut paused = false;
     let mut was_idle = false;
+    let mut idle_started_at: Option<Instant> = None;
     let mut last_window: Option<WindowInfo> = None;
     let mut last_change_time = Instant::now();
     let poll_duration = tokio::time::Duration::from_secs(config.poll_interval_secs);
@@ -106,6 +107,11 @@ pub async fn run_with(
                 if is_idle && !was_idle {
                     // Transition to idle
                     was_idle = true;
+                    let now = Instant::now();
+                    let idle_start = now
+                        .checked_sub(Duration::from_secs(idle_secs))
+                        .unwrap_or(now);
+                    idle_started_at = Some(idle_start);
                     let event = ActivityEvent::idle_start();
                     store_event(&buffer, &event);
                     update_status(status_tx, &buffer, DaemonState::Idle);
@@ -116,7 +122,11 @@ pub async fn run_with(
                 if !is_idle && was_idle {
                     // Transition from idle
                     was_idle = false;
-                    let event = ActivityEvent::idle_end(idle_secs);
+                    let idle_duration_secs = idle_started_at
+                        .take()
+                        .map(|start| start.elapsed().as_secs())
+                        .unwrap_or(idle_secs);
+                    let event = ActivityEvent::idle_end(idle_duration_secs);
                     store_event(&buffer, &event);
                     last_window = None; // Force re-capture
                     last_change_time = Instant::now();
@@ -400,6 +410,9 @@ mod tests {
         assert!(types.contains(&EventType::WindowChange), "Should have WindowChange");
         assert!(types.contains(&EventType::IdleStart), "Should have IdleStart");
         assert!(types.contains(&EventType::IdleEnd), "Should have IdleEnd");
+        let idle_end = events.iter().find(|(_, e)| e.event_type == EventType::IdleEnd).unwrap();
+        let idle_duration = idle_end.1.idle_duration_secs.unwrap_or(0);
+        assert!(idle_duration >= 10, "Idle duration should include time since last input");
     }
 
     #[tokio::test]

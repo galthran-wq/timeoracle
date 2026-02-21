@@ -22,7 +22,7 @@ pub fn run(config: Config) -> anyhow::Result<()> {
     let status_item = MenuItem::new("Status: Starting...", false, None);
     let server_item = MenuItem::new("Server: Unknown", false, None);
     let pause_item = MenuItem::new("Pause Tracking", true, None);
-    let sync_item = MenuItem::new("Sync Now", true, None);
+    let sync_item = MenuItem::new("Sync Now", false, None);
     let quit_item = MenuItem::new("Quit", true, None);
 
     menu.append(&status_item).ok();
