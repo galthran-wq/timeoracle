@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime, timezone
 
 import httpx
-import pytest
+import pytest_asyncio
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 from src.core.auth import create_token_for_user
 from src.core.config import settings
@@ -13,26 +13,34 @@ from src.main import app
 from src.models.postgres.users import UserModel
 
 
-engine = create_async_engine(settings.postgres_url, echo=False)
-TestingSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
-
-@pytest.fixture(autouse=True)
-async def setup_database():
-    async with engine.begin() as conn:
+@pytest_asyncio.fixture(scope="session")
+async def engine():
+    eng = create_async_engine(settings.postgres_url, poolclass=NullPool)
+    async with eng.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
+    yield eng
+    async with eng.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await eng.dispose()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def cleanup(engine):
     yield
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.execute(text(
+            "TRUNCATE TABLE activity_events, users CASCADE"
+        ))
 
 
-@pytest.fixture
-async def db_session():
-    async with TestingSessionLocal() as session:
+@pytest_asyncio.fixture
+async def db_session(engine):
+    async with AsyncSession(engine, expire_on_commit=False) as session:
         yield session
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client(db_session: AsyncSession):
     async def override_get_session():
         yield db_session
@@ -46,7 +54,7 @@ async def client(db_session: AsyncSession):
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_user(db_session: AsyncSession) -> UserModel:
     user = UserModel(
         id=uuid.uuid4(),
@@ -61,13 +69,13 @@ async def test_user(db_session: AsyncSession) -> UserModel:
     return user
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def auth_headers(test_user: UserModel) -> dict[str, str]:
     token = create_token_for_user(test_user)
     return {"Authorization": f"Bearer {token}"}
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def authed_client(client: httpx.AsyncClient, auth_headers: dict[str, str]):
     client.headers.update(auth_headers)
     yield client
