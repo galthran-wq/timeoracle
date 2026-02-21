@@ -20,7 +20,7 @@ class ActivityEventCreate(BaseModel):
     app_name: str = Field(min_length=1, max_length=255)
     window_title: str = Field(max_length=2000)
     url: Optional[str] = Field(default=None, max_length=2000)
-    metadata: Optional[dict[str, Any]] = None
+    metadata: Optional[dict[str, Any]] = Field(default=None, validation_alias="metadata_")
 
     @field_validator("timestamp")
     @classmethod

@@ -22,7 +22,7 @@ class ActivityEventModel(Base):
     app_name = Column(String(255), nullable=False)
     window_title = Column(String(2000), nullable=False)
     url = Column(String(2000), nullable=True)
-    metadata = Column(JSONB, nullable=True)
+    metadata_ = Column("metadata", JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (

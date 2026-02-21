@@ -41,7 +41,7 @@ async def ingest_events(
             detail={"message": "Batch validation failed", "errors": errors},
         )
 
-    under_limit = await repo.check_daily_limit(current_user.id)
+    under_limit = await repo.check_daily_limit(current_user.id, len(request.events))
     if not under_limit:
         raise HTTPException(
             status_code=429,

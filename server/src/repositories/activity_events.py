@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +23,7 @@ class ActivityEventRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def check_daily_limit(self, user_id: UUID) -> bool:
+    async def check_daily_limit(self, user_id: UUID, batch_size: int) -> bool:
         pass
 
     @abstractmethod
@@ -80,7 +80,7 @@ class ActivityEventRepository(ActivityEventRepositoryInterface):
 
         return errors if errors else None
 
-    async def check_daily_limit(self, user_id: UUID) -> bool:
+    async def check_daily_limit(self, user_id: UUID, batch_size: int) -> bool:
         one_day_ago = datetime.now(timezone.utc) - timedelta(days=1)
         result = await self.session.execute(
             select(func.count()).select_from(ActivityEventModel).where(
@@ -89,11 +89,12 @@ class ActivityEventRepository(ActivityEventRepositoryInterface):
             )
         )
         count = result.scalar_one()
-        return count < MAX_DAILY_EVENTS_PER_USER
+        return count + batch_size <= MAX_DAILY_EVENTS_PER_USER
 
     async def bulk_create(self, user_id: UUID, events: list[ActivityEventCreate]) -> int:
         rows = [
             {
+                "id": uuid4(),
                 "user_id": user_id,
                 "client_event_id": event.client_event_id,
                 "timestamp": event.timestamp,
