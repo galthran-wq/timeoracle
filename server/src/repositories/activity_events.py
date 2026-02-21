@@ -102,7 +102,7 @@ class ActivityEventRepository(ActivityEventRepositoryInterface):
                 "app_name": event.app_name,
                 "window_title": event.window_title,
                 "url": event.url,
-                "metadata": event.metadata,
+                "metadata_": event.metadata,
             }
             for event in events
         ]

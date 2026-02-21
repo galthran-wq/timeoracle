@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator, Field
+from pydantic import BaseModel, ConfigDict, field_validator, Field
 
 
 class ActivityEventType(str, Enum):
@@ -42,6 +42,8 @@ class ActivityEventBatchRequest(BaseModel):
 
 
 class ActivityEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
     id: UUID
     user_id: UUID
     client_event_id: UUID
@@ -50,11 +52,8 @@ class ActivityEventResponse(BaseModel):
     app_name: str
     window_title: str
     url: Optional[str] = None
-    metadata: Optional[dict[str, Any]] = None
+    metadata: Optional[dict[str, Any]] = Field(default=None, validation_alias="metadata_")
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class ActivityEventBatchResponse(BaseModel):
