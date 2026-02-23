@@ -50,7 +50,7 @@ async def create_entry(
 @router.get("", response_model=TimelineEntryListResponse)
 async def list_entries(
     date: date = Query(..., description="Start date for the query"),
-    range: DateRange = Query(default=DateRange.DAY, description="day or week"),
+    date_range: DateRange = Query(default=DateRange.DAY, description="day or week", alias="range"),
     category: str | None = None,
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -58,7 +58,7 @@ async def list_entries(
     repo: TimelineEntryRepository = Depends(get_timeline_repository),
 ):
     start_date = date
-    if range == DateRange.WEEK:
+    if date_range == DateRange.WEEK:
         end_date = date + timedelta(days=6)
     else:
         end_date = date
@@ -94,6 +94,15 @@ async def update_entry(
     effective_end = body.end_time if body.end_time is not None else entry.end_time
     if effective_end <= effective_start:
         raise HTTPException(status_code=400, detail="end_time must be after start_time")
+    if body.date is not None or body.start_time is not None:
+        if body.date is not None:
+            effective_date = body.date
+        elif body.start_time is not None:
+            effective_date = body.start_time.date()
+        else:
+            effective_date = entry.date
+        if effective_date != effective_start.date():
+            raise HTTPException(status_code=400, detail="date must match the date of start_time")
 
     try:
         updated = await repo.update(entry, body)
