@@ -1,12 +1,63 @@
 use crate::buffer::EventBuffer;
 use crate::config::Config;
 use crate::error::{DaemonError, Result};
+use crate::events::{ActivityEvent, EventType};
+use chrono::{DateTime, Utc};
+use serde::Serialize;
 use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
+use uuid::Uuid;
 
 const MAX_BACKOFF_SECS: u64 = 300; // 5 minutes
 const MAX_BUFFER_EVENTS: usize = 100_000;
 const CLEANUP_AGE_DAYS: u32 = 7;
+
+/// Matches the server's ActivityEventCreate schema.
+#[derive(Serialize)]
+struct ServerEvent {
+    client_event_id: Uuid,
+    timestamp: DateTime<Utc>,
+    event_type: &'static str,
+    app_name: String,
+    window_title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    metadata: Option<serde_json::Value>,
+}
+
+/// Matches the server's ActivityEventBatchRequest schema.
+#[derive(Serialize)]
+struct ServerBatchRequest {
+    events: Vec<ServerEvent>,
+}
+
+fn to_server_event(event: &ActivityEvent) -> ServerEvent {
+    let event_type = match event.event_type {
+        EventType::WindowChange | EventType::Heartbeat => "active_window",
+        EventType::IdleStart => "idle_start",
+        EventType::IdleEnd => "idle_end",
+    };
+
+    let (app_name, window_title, url) = match &event.window_info {
+        Some(w) => (w.app_name.clone(), w.window_title.clone(), w.url.clone()),
+        None => ("system".to_string(), String::new(), None),
+    };
+
+    let metadata = event.idle_duration_secs.map(|d| {
+        serde_json::json!({"idle_duration_secs": d})
+    });
+
+    ServerEvent {
+        client_event_id: event.id,
+        timestamp: event.timestamp,
+        event_type,
+        app_name,
+        window_title,
+        url,
+        metadata,
+    }
+}
 
 pub async fn run(
     config: Config,
@@ -97,13 +148,15 @@ async fn flush_once(
         return Err(DaemonError::TokenExpired);
     }
 
-    let events: Vec<_> = batch.iter().map(|(_, event)| event).collect();
     let ids: Vec<String> = batch.iter().map(|(id, _)| id.clone()).collect();
+    let batch_request = ServerBatchRequest {
+        events: batch.iter().map(|(_, event)| to_server_event(event)).collect(),
+    };
 
     let resp = client
         .post(format!("{}/api/activity/events", config.server_url))
         .bearer_auth(token)
-        .json(&events)
+        .json(&batch_request)
         .send()
         .await?;
 
@@ -131,7 +184,7 @@ async fn flush_once(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::{ActivityEvent, WindowInfo};
+    use crate::events::WindowInfo;
     use axum::{routing::post, Json, Router};
     use std::sync::atomic::{AtomicU16, Ordering};
     use tempfile::TempDir;
@@ -295,5 +348,80 @@ mod tests {
         let result = flush_once(&config, &buffer, &client).await;
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_to_server_event_window_change() {
+        let event = ActivityEvent::window_change(WindowInfo {
+            app_name: "Firefox".into(),
+            window_title: "GitHub".into(),
+            url: Some("https://github.com".into()),
+        });
+        let server_event = to_server_event(&event);
+
+        assert_eq!(server_event.client_event_id, event.id);
+        assert_eq!(server_event.event_type, "active_window");
+        assert_eq!(server_event.app_name, "Firefox");
+        assert_eq!(server_event.window_title, "GitHub");
+        assert_eq!(server_event.url, Some("https://github.com".into()));
+        assert!(server_event.metadata.is_none());
+    }
+
+    #[test]
+    fn test_to_server_event_heartbeat_maps_to_active_window() {
+        let event = ActivityEvent::heartbeat(WindowInfo {
+            app_name: "VSCode".into(),
+            window_title: "main.rs".into(),
+            url: None,
+        });
+        let server_event = to_server_event(&event);
+
+        assert_eq!(server_event.event_type, "active_window");
+        assert_eq!(server_event.app_name, "VSCode");
+    }
+
+    #[test]
+    fn test_to_server_event_idle_start() {
+        let event = ActivityEvent::idle_start();
+        let server_event = to_server_event(&event);
+
+        assert_eq!(server_event.event_type, "idle_start");
+        assert_eq!(server_event.app_name, "system");
+        assert_eq!(server_event.window_title, "");
+    }
+
+    #[test]
+    fn test_to_server_event_idle_end_with_metadata() {
+        let event = ActivityEvent::idle_end(600);
+        let server_event = to_server_event(&event);
+
+        assert_eq!(server_event.event_type, "idle_end");
+        let meta = server_event.metadata.unwrap();
+        assert_eq!(meta["idle_duration_secs"], 600);
+    }
+
+    #[test]
+    fn test_batch_request_json_shape() {
+        let event = ActivityEvent::window_change(WindowInfo {
+            app_name: "Test".into(),
+            window_title: "Win".into(),
+            url: None,
+        });
+        let batch = ServerBatchRequest {
+            events: vec![to_server_event(&event)],
+        };
+        let json: serde_json::Value = serde_json::to_value(&batch).unwrap();
+
+        // Must have top-level "events" array
+        assert!(json["events"].is_array());
+        let first = &json["events"][0];
+        // Must use server field names
+        assert!(first.get("client_event_id").is_some());
+        assert!(first.get("event_type").is_some());
+        assert!(first.get("app_name").is_some());
+        assert!(first.get("window_title").is_some());
+        // Must NOT have daemon internal field names
+        assert!(first.get("id").is_none());
+        assert!(first.get("window_info").is_none());
     }
 }
