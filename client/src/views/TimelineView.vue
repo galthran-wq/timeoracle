@@ -73,11 +73,9 @@ const calendar = createCalendar({
       try {
         const start = updatedEvent.start as Temporal.ZonedDateTime
         const end = updatedEvent.end as Temporal.ZonedDateTime
-        const entryDate = start.toPlainDate().toString()
         await timelineStore.updateEntry(String(updatedEvent.id), {
           start_time: formatISO(new Date(start.epochMilliseconds)),
           end_time: formatISO(new Date(end.epochMilliseconds)),
-          date: entryDate,
         })
       } catch (e) {
         message.error(e instanceof ApiError ? e.message : 'Failed to update entry')
@@ -119,7 +117,8 @@ async function handleSave(data: {
       description: data.description || null,
     }
     if (editingEntry.value) {
-      await timelineStore.updateEntry(editingEntry.value.id, payload)
+      const { date: _, ...updatePayload } = payload
+      await timelineStore.updateEntry(editingEntry.value.id, updatePayload)
       message.success('Entry updated')
     } else {
       await timelineStore.createEntry(payload)
