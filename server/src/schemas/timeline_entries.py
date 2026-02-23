@@ -91,6 +91,13 @@ class TimelineEntryUpdate(BaseModel):
             return _validate_color(v)
         return v
 
+    @model_validator(mode="after")
+    def required_fields_not_null(self):
+        for field in {"date", "start_time", "end_time", "label"}:
+            if field in self.model_fields_set and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be null")
+        return self
+
 
 class TimelineEntryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
