@@ -8,54 +8,65 @@ TimeOracle is an AI-powered personal time tracker. A Rust daemon running on the 
 
 ```
 ┌─────────────┐     ┌─────────────┐
-│  Oura API   │     │ Future APIs │
+│  Oura API   │     │ GitHub API  │
 └──────┬──────┘     └──────┬──────┘
        │                   │
-       ▼                   ▼
-┌──────────────────────────────────┐
-│          FastAPI Server          │
-│                                  │
-│  ┌────────────┐ ┌─────────────┐  │
-│  │ Ingestion  │ │ Integrations│  │
-│  │ API        │ │ (Oura etc.) │  │
-│  └─────┬──────┘ └──────┬──────┘  │
-│        │               │         │
-│        ▼               ▼         │
-│  ┌───────────────────────────┐   │
-│  │     PostgreSQL (raw       │   │
-│  │     activity events)      │   │
-│  └────────────┬──────────────┘   │
-│               │                  │
-│               ▼                  │
-│  ┌───────────────────────────┐   │
-│  │     AI Agent              │   │
-│  │  (LLM-based analysis &    │   │
-│  │   timeline generation)    │   │
-│  └────────────┬──────────────┘   │
-│               │                  │
-│               ▼                  │
-│  ┌───────────────────────────┐   │
-│  │   Timeline API            │   │
-│  │   (calendar entries)      │   │
-│  └───────────────────────────┘   │
-└──────────────┬───────────────────┘
-               │
-    ┌──────────┴──────────┐
-    │                     │
-    ▼                     ▼
-┌────────┐         ┌───────────┐
-│ Vue 3  │         │ Rust      │
+       │   ┌───────────────┘
+       │   │  (called on-demand by agent via skill tools)
+       ▼   ▼
+┌──────────────────────────────────────────┐
+│             FastAPI Server               │
+│                                          │
+│  ┌────────────┐  ┌────────────────────┐  │
+│  │ Ingestion  │  │ Skills Framework   │  │
+│  │ API        │  │ (Oura, GitHub)     │  │
+│  └─────┬──────┘  └────────┬───────────┘  │
+│        │                  │              │
+│        ▼                  │              │
+│  ┌──────────────┐         │              │
+│  │ PostgreSQL   │         │              │
+│  │ activity_events        │              │
+│  │ user_integrations      │              │
+│  │ integration_cache      │              │
+│  │ chats                  │              │
+│  │ timeline_entries       │              │
+│  └──────┬───────┘         │              │
+│         │                 │              │
+│         ▼                 ▼              │
+│  ┌────────────────────────────────────┐  │
+│  │  LangGraph AI Agent (ReAct)       │  │
+│  │  - Loads skill tools per user     │  │
+│  │  - Streams via WebSocket          │  │
+│  │  - Redis checkpointing            │  │
+│  │  - Cron / manual / chat modes     │  │
+│  └──────────┬─────────────────────┘  │  │
+│             │                        │  │
+│             ▼                        │  │
+│  ┌───────────────────┐  ┌─────────┐ │  │
+│  │ Timeline API      │  │  Redis  │ │  │
+│  │ Chat API          │  │ (state) │ │  │
+│  │ WebSocket         │  └─────────┘ │  │
+│  └───────────────────┘              │  │
+└──────────────┬───────────────────────┘  │
+               │                          │
+    ┌──────────┴──────────┐               │
+    │                     │               │
+    ▼                     ▼               │
+┌────────┐         ┌───────────┐          │
+│ Vue 3  │◄─ws────►│ Rust      │──────────┘
 │ Calendar│        │ Daemon    │
-│ UI     │         │ (Linux/   │
-│        │         │  macOS)   │
+│ + Chat │         │ (Linux/   │
+│ UI     │         │  macOS)   │
 └────────┘         └───────────┘
 ```
 
 ## Data Model (core tables beyond existing `users`)
 
 - **activity_events** — raw stream from daemon: `(user_id, timestamp, event_type, app_name, window_title, url, metadata_json)`
-- **integration_events** — data from external APIs: `(user_id, source, timestamp, event_type, data_json)`
-- **timeline_entries** — AI-generated calendar blocks: `(user_id, start_time, end_time, label, category, source_summary, confidence, edited_by_user)`
+- **user_integrations** — per-user integration credentials: `(user_id, source, credentials_encrypted, scopes, is_enabled, token_expires_at)`
+- **integration_cache** — transparent cache of external API responses: `(user_id, source, data_type, date, data_json, expires_at)`
+- **chats** — conversation sessions: `(user_id, name, date, trigger, llm_model, skills_used, total_input_tokens, total_output_tokens)`
+- **timeline_entries** — AI-generated calendar blocks: `(user_id, date, start_time, end_time, label, category, source_summary, confidence, edited_by_user, chat_id)`
 
 ---
 
@@ -112,73 +123,96 @@ Server-side endpoints that receive raw activity data from daemons, validate it, 
 
 ---
 
-## Task 3: External Integrations Framework + Oura
+## Task 3: Skills Framework + Integrations (Oura, GitHub)
 
 ### Goal
-A pluggable system for connecting third-party data sources that provide context about what the user was doing when they weren't at their computer (sleep, exercise, location, etc.).
+A pluggable skill system where each external integration provides LangChain tools the AI agent can call on-demand. When the agent runs for a user, it dynamically loads tools from the user's connected integrations. Each integration is a "skill" — a bundle of LangChain tools + agent instructions + credential schema.
 
 ### Requirements
-- Generic integration interface so adding new sources is straightforward
-- Store integration credentials securely per user
-- Periodic background sync to pull new data
-- Normalize external data into `integration_events` table
-- Oura Ring as the first integration: pull sleep, activity, and readiness scores
-- User can connect/disconnect integrations via API
+- Skills are LangChain `BaseTool` subclasses (same pattern as gb_gpt tools)
+- Tools handle caching internally — check `integration_cache` before hitting external APIs
+- User connects/disconnects integrations via OAuth
+- Credentials encrypted at rest (Fernet symmetric encryption)
+- Oura Ring and GitHub as first two integrations
 
 ### High-Level Implementation Plan
-1. **Integration base class**: `server/src/integrations/base.py` — abstract class `Integration` with methods: `authorize(credentials) -> bool`, `sync(user_id, since_date) -> list[IntegrationEvent]`, `get_source_name() -> str`.
+1. **Credential encryption** (`server/src/core/encryption.py`): Fernet symmetric encryption using `CREDENTIAL_ENCRYPTION_KEY` env var. Functions: `encrypt_credentials(dict) -> bytes`, `decrypt_credentials(bytes) -> dict`.
 2. **Database models**:
-   - `UserIntegration` table: `(user_id, source, credentials_encrypted, last_synced_at, enabled)` — stores per-user connection state.
-   - `IntegrationEvent` table: `(user_id, source, timestamp, event_type, data_json)`.
-3. **Alembic migrations** for both tables.
-4. **Integration registry**: A dict mapping source names to integration classes. New integrations just register themselves.
-5. **API endpoints** in `server/src/api/integrations.py`:
-   - `GET /api/integrations` — list available integrations and user's connection status.
-   - `POST /api/integrations/{source}/connect` — save credentials / initiate OAuth.
-   - `DELETE /api/integrations/{source}/disconnect` — remove connection.
-   - `POST /api/integrations/{source}/sync` — manually trigger a sync.
-6. **Background sync**: Use `APScheduler` (already easy to add to FastAPI). Run every N hours: for each user with active integrations, call `integration.sync()` and store new events.
-7. **Oura implementation** in `server/src/integrations/oura.py`:
-   - Oura API v2 (`https://cloud.ouraring.com/v2/usercollection/...`).
-   - Pull daily sleep periods, activity sessions, readiness scores.
-   - Map to `IntegrationEvent` records with `source="oura"`, `event_type` in `{"sleep", "activity", "readiness"}`.
+   - `UserIntegrationModel` (`server/src/models/postgres/user_integrations.py`): `id`, `user_id (FK)`, `source`, `credentials_encrypted (LargeBinary)`, `scopes (JSONB)`, `is_enabled`, `connected_at`, `last_used_at`, `token_expires_at`. Unique on `(user_id, source)`.
+   - `IntegrationCacheModel` (`server/src/models/postgres/integration_cache.py`): `id`, `user_id (FK)`, `source`, `data_type`, `date (Date)`, `data (JSONB)`, `fetched_at`, `expires_at`. Unique on `(user_id, source, data_type, date)`. Tools check this before hitting external APIs.
+3. **Alembic migration** for both tables.
+4. **Repositories**: `UserIntegrationRepository`, `IntegrationCacheRepository` — following existing ABC + concrete pattern.
+5. **Skill framework** (`server/src/skills/`):
+   - `base.py` — `BaseSkill` ABC with: `name`, `display_name`, `description`, `auth_type`, `credential_schema`, `get_tools(context) -> list[BaseTool]`, `get_agent_instructions() -> str`. Plus `SkillContext` dataclass (user_id, session, decrypted credentials, cache_repo).
+   - `__init__.py` — `SkillRegistry` (dict mapping source names to skill instances), `register_all_skills()` called at startup.
+6. **Oura skill** (`server/src/skills/oura/`):
+   - `client.py` — Oura API v2 HTTP client (aiohttp). Endpoints: `/v2/usercollection/daily_sleep`, `/daily_activity`, `/daily_readiness`.
+   - `tools.py` — 3 LangChain `BaseTool` subclasses:
+     - `GetOuraSleep`: Fetch sleep data for a date. Cache TTL: 6h.
+     - `GetOuraActivity`: Fetch activity/steps for a date. Cache TTL: 2h.
+     - `GetOuraReadiness`: Fetch readiness score. Cache TTL: 6h.
+   - Auth: OAuth2 (server exchanges authorization code for access_token + refresh_token).
+   - Agent instructions: markdown explaining when to call each tool.
+7. **GitHub skill** (`server/src/skills/github/`):
+   - `client.py` — GitHub API HTTP client.
+   - `tools.py` — 2 LangChain `BaseTool` subclasses:
+     - `GetGitHubCommits`: Fetch commits for a date across user's repos. Cache TTL: 1h.
+     - `GetGitHubPullRequests`: Fetch PRs opened/merged/reviewed. Cache TTL: 1h.
+   - Auth: OAuth App (server exchanges code for token).
+   - Agent instructions: cross-reference commits with VS Code sessions for richer labels.
+8. **Schemas** (`server/src/schemas/integrations.py`): `IntegrationSummary`, `IntegrationListResponse`, `OAuthAuthorizeResponse`, `OAuthCallbackRequest`, `IntegrationConnectResponse`, `IntegrationDisconnectResponse`.
+9. **API endpoints** (`server/src/api/integrations.py`, prefix `/api/integrations`):
+   - `GET /` — list available integrations + user's connection status.
+   - `GET /{source}/oauth/authorize` — get OAuth authorization URL.
+   - `POST /{source}/oauth/callback` — handle OAuth callback, exchange code for tokens.
+   - `DELETE /{source}/disconnect` — remove integration + clear cache.
+   - `POST /{source}/refresh` — invalidate cached data.
+10. **Config additions**: `credential_encryption_key`, `oura_client_id`, `oura_client_secret`, `github_client_id`, `github_client_secret`.
+11. **Wire into FastAPI**: Register router in `main.py`, call `register_all_skills()` at startup.
 
 ---
 
-## Task 4: AI Agent — Timeline Generation
+## Task 4: AI Agent — Conversational Timeline (LangGraph)
 
 ### Goal
-Analyze raw activity data and external integration data to produce a clean, human-readable timeline of the user's day — labeled and categorized without manual effort.
+A conversational AI agent (modeled after gb_gpt's architecture) that generates timelines from activity data + skill tools, streams responses via WebSocket, and supports follow-up chat. When a user opens the web app, an initial prompt generates the calendar; the user can then continue chatting — asking questions about their day, requesting adjustments, drilling into specific time blocks.
 
 ### Requirements
-- Group raw activity events into coherent sessions (e.g., "45 min coding in VS Code")
-- Merge integration data (sleep, exercise) into the timeline
-- Use an LLM (Claude API) to interpret and label the sessions
-- Produce structured timeline entries with: time range, label, category, confidence
-- Allow on-demand generation (user requests it) and scheduled generation
-- Support user corrections that persist and improve future results
-- Handle a full day of data (potentially thousands of raw events) within reasonable token limits
+- LangGraph ReAct pattern: `agent → tools → agent` loop (same as gb_gpt `react/graph.py`)
+- WebSocket streaming with `astream_events(version="v2")` (same as gb_gpt `websocket.py`)
+- Redis checkpointing for conversation persistence (same as gb_gpt `redis_chain_memory.py`)
+- Dynamic tool loading: built-in tools + skill tools from user's connected integrations
+- Activity data pre-processed into compact session summaries for the prompt
+- Three execution modes: cron (end-of-day auto), manual trigger, real-time chat
+- User edits to timeline entries persist and are preserved on re-generation
 
 ### High-Level Implementation Plan
-1. **Pre-processing / clustering** in `server/src/services/activity_clusterer.py`:
-   - Query all `activity_events` for a user + date.
-   - Group consecutive events with the same app into sessions. Merge sessions separated by <2 min gaps.
-   - Output: list of `ActivitySession(app, window_titles[], start, end, duration_minutes)`.
-2. **Context builder** in `server/src/services/timeline_context.py`:
-   - Take clustered sessions + integration events for the day.
-   - Build a compact text summary: "9:00-9:45 — VS Code (files: auth.py, users.py), 9:45-10:00 — Chrome (GitHub, Stack Overflow), ... Oura: slept 11pm-7am".
-   - This is what gets sent to the LLM. Keep it under token limits by summarizing window titles, deduplicating, etc.
-3. **LLM integration** in `server/src/services/timeline_generator.py`:
-   - Call Claude API with a system prompt: "You are a time-tracking assistant. Given the following computer activity and health data, produce a timeline..."
-   - Structured output: list of `{start, end, label, category, confidence}`.
-   - Parse the LLM response into `TimelineEntry` objects.
-4. **Database model**: `TimelineEntry` in `server/src/models/postgres/timeline_entries.py`. Columns: `id`, `user_id`, `date`, `start_time`, `end_time`, `label`, `category`, `source_summary`, `confidence`, `edited_by_user (bool)`, `created_at`.
-5. **API endpoints** in `server/src/api/timeline.py`:
-   - `POST /api/timeline/generate` — trigger generation for a date. Returns the generated entries.
-   - `GET /api/timeline?date=...&range=day|week` — fetch timeline entries.
-   - `PATCH /api/timeline/{id}` — user edits (change label, adjust times). Sets `edited_by_user=true`.
-   - `DELETE /api/timeline/{id}` — remove an entry.
-6. **Scheduled generation**: Optional APScheduler job that runs at end-of-day (e.g., 23:00 user's local time) to auto-generate if not already done.
+1. **Dependencies**: `anthropic`, `langchain-anthropic`, `langgraph`, `langchain-core`, `redis[hiredis]`.
+2. **Database models**:
+   - `ChatModel` (`server/src/models/postgres/chats.py`): `id`, `user_id (FK)`, `name`, `date`, `trigger`, `llm_model`, `skills_used (JSONB)`, `total_input_tokens`, `total_output_tokens`, `total_cost_usd`, `created_at`. Modeled after gb_gpt's `ChatModel`.
+   - `TimelineEntryModel` (`server/src/models/postgres/timeline_entries.py`): `id`, `user_id (FK)`, `date`, `start_time`, `end_time`, `label`, `category`, `source_summary`, `confidence`, `edited_by_user`, `chat_id (FK)`, `created_at`, `updated_at`. Indexed on `(user_id, date)`.
+3. **Alembic migration** for both tables.
+4. **Redis setup**: Add Redis service to `docker-compose.yaml`. Port `AsyncRedisSaver` checkpointer from gb_gpt.
+5. **Activity preprocessor** (`server/src/agent/preprocessor.py`): Query `activity_events` for a user+date, cluster consecutive same-app events into sessions (merge gaps <2min), output compact text summary for the agent prompt.
+6. **Prompt builder** (`server/src/agent/prompts.py`): Composable system prompt — role description + date + activity summary + skill instructions (dynamically loaded per user's connected integrations).
+7. **Built-in tools** (`server/src/agent/tools/`):
+   - `SaveTimelineEntries` — agent calls this to output structured timeline entries (writes to DB).
+   - `GetActivitySessions` — re-query activity data for a different time range.
+   - `GetExistingTimeline` — load previously generated entries (for edits/follow-ups).
+8. **LangGraph agent** (`server/src/agent/graph.py`): ReAct pattern with `StateGraph(AgentState)`, `agent` and `tools` nodes, conditional edges. `llm.bind_tools(builtin_tools + skill_tools)`.
+9. **Chain builder** (`server/src/agent/chain_builder.py`): Load user's integrations → decrypt credentials → build `SkillContext` → get tools + instructions → compile LangGraph with Redis checkpointer.
+10. **Generation manager** (`server/src/agent/generation_manager.py`): Port from gb_gpt — manages generation state, Redis pub/sub + local async queues for streaming events to WebSocket clients.
+11. **WebSocket handler** (`server/src/api/websocket.py`): Port from gb_gpt — `WebSocketConnection` class, authenticate, subscribe to chat, forward events (token, tool_start, tool_end, done, error). Stop/cancellation support.
+12. **REST endpoints** (`server/src/api/timeline.py`):
+   - `POST /api/timeline/generate` — trigger generation for a date (creates chat + runs agent).
+   - `GET /api/timeline` — fetch timeline entries for a day or date range.
+   - `PATCH /api/timeline/{id}` — user edits entry (sets `edited_by_user=true`).
+   - `DELETE /api/timeline/{id}` — remove entry.
+13. **Chat REST endpoints** (`server/src/api/chats.py`): List, get (with messages from Redis checkpoint), delete.
+14. **LLM configuration** (`server/src/agent/llm.py`): `ChatAnthropic` instance, rate limiting via semaphore.
+15. **Context management** (`server/src/agent/token_utils.py`): Token counting + history trimming. Port from gb_gpt.
+16. **Cron job**: Background task for end-of-day auto-generation + expired `integration_cache` cleanup.
+17. **Wire into FastAPI**: Register WebSocket route + REST routers in `main.py`.
 
 ---
 
@@ -253,12 +287,10 @@ Make the product installable, reliable, and ready for real daily use.
 
 ```
 1 (Daemon) ──────┐
-                  ├──→ 4 (AI Agent) ──→ 6 (Polish)
-2 (Ingest API) ──┤
-                  │
-3 (Integrations)─┘
+                  ├──→ 3 (Skills + Integrations) ──→ 4 (AI Agent + Chat) ──→ 6 (Polish)
+2 (Ingest API) ──┘
 
-5 (Frontend) ─── starts early with mocks, integrates with 4 later
+5 (Frontend) ─── starts early with mocks, integrates with 4 (WebSocket chat + calendar)
 ```
 
-Tasks 1 and 2 can start in parallel. Task 3 is independent. Task 4 depends on 2+3. Task 5 starts early with mock data. Task 6 is last.
+Tasks 1 and 2 are done. Task 3 depends on 2 (needs server patterns). Task 4 depends on 3 (agent uses skills). Task 4 also touches Task 5 since WebSocket chat needs frontend work. Task 6 is last.
