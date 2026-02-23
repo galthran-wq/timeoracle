@@ -54,7 +54,31 @@ Communication between threads:
 - On 401: mark auth expired
 - Periodic cleanup: max 100k events, auto-delete after 7 days
 
-## Building
+## Installing
+
+### From .deb package (recommended for Ubuntu/Debian)
+
+Download the `.deb` from GitHub Releases or CI artifacts, then:
+
+```bash
+sudo dpkg -i timeoracle-daemon_<version>_amd64.deb
+```
+
+The package installs:
+- Binary to `/usr/bin/timeoracle-daemon`
+- systemd user service to `/usr/lib/systemd/user/timeoracle-daemon.service`
+- Runtime deps: `libgtk-3-0`, `libxss1`, `libxdo3`
+
+After install, login and enable the service:
+
+```bash
+timeoracle-daemon login --server-url http://localhost:8000
+systemctl --user enable --now timeoracle-daemon
+```
+
+The `.deb` is built by the `daemon-release.yml` workflow — triggered on `daemon-v*` tags (creates a GitHub Release) and on PRs touching `daemon/` (uploads as CI artifact).
+
+### From source
 
 ```bash
 # System dependencies (Ubuntu/Debian)
