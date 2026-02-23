@@ -17,7 +17,18 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@preact/signals": "^2.0.2",
+    "@schedule-x/calendar": "^3.7.3",
+    "@schedule-x/drag-and-drop": "^3.7.3",
+    "@schedule-x/resize": "^3.7.3",
+    "@schedule-x/theme-default": "^3.7.3",
+    "@schedule-x/vue": "^3.6.0",
+    "preact": "^10.19.2",
+    "temporal-polyfill": "0.3.0",
+    "date-fns": "^4.1.0",
+    "naive-ui": "^2.41.0",
     "pinia": "^3.0.3",
+    "vfonts": "^0.0.3",
     "vue": "^3.5.18",
     "vue-router": "^4.5.1"
   },

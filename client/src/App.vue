@@ -1,11 +1,20 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { NConfigProvider, NMessageProvider } from 'naive-ui'
+import { useThemeStore } from '@/stores/theme'
+import { useAuthStore } from '@/stores/auth'
+import AppLayout from '@/components/AppLayout.vue'
+
+const themeStore = useThemeStore()
+const authStore = useAuthStore()
+</script>
 
 <template>
-  <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
+  <NConfigProvider :theme="themeStore.theme">
+    <NMessageProvider>
+      <AppLayout v-if="authStore.isAuthenticated">
+        <router-view />
+      </AppLayout>
+      <router-view v-else />
+    </NMessageProvider>
+  </NConfigProvider>
 </template>
-
-<style scoped></style>
