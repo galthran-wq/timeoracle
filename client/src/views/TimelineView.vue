@@ -222,3 +222,14 @@ function openCreate() {
     />
   </div>
 </template>
+
+<style>
+/* Session events: render as full-width background layer, not side-by-side columns */
+.sx__time-grid-event[data-event-id^="session-"] {
+  width: 100% !important;
+  inset-inline-start: 0 !important;
+  z-index: 0 !important;
+  opacity: 0.5;
+  pointer-events: none;
+}
+</style>
