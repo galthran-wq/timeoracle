@@ -45,3 +45,13 @@ axum = "0.7"
 
 [features]
 default = []
+
+[package.metadata.deb]
+maintainer = "TimeOracle"
+section = "utils"
+priority = "optional"
+depends = "libgtk-3-0, libxss1, libxdo3"
+assets = [
+    ["target/release/timeoracle-daemon", "usr/bin/", "755"],
+    ["pkg/timeoracle-daemon.service", "usr/lib/systemd/user/", "644"],
+]

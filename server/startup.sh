@@ -2,7 +2,7 @@
 set -e
 
 echo "Running database migrations..."
-python -m alembic upgrade head
+uv run alembic upgrade head
 echo "Migrations completed!"
 echo "Starting server..."
-exec python -m src.main 
+exec uv run python -m src.main

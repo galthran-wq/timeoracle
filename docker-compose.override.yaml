@@ -2,8 +2,6 @@ version: '3.8'
 
 services:
   postgres:
-    ports:
-      - "${DEV_POSTGRES_PORT:-5444}:5432"
     volumes:
       - ./data/postgres_dev:/var/lib/postgresql/data
 

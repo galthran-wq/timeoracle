@@ -1,15 +1,15 @@
-FROM node:22-alpine as build
+FROM node:22-slim AS build
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 
 COPY . .
-RUN npm run build
+RUN npm run build-only
 
-FROM alpine:latest
+FROM node:22-slim
 WORKDIR /app
 COPY --from=build /app/dist ./dist
 
-CMD ["tail", "-f", "/dev/null"] 
+CMD ["tail", "-f", "/dev/null"]

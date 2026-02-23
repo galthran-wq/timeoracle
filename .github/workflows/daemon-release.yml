@@ -30,21 +30,35 @@ jobs:
         with:
           workspaces: daemon
 
+      - name: Install cargo-deb
+        run: cargo install cargo-deb
+
       - name: Build release binary
         run: cargo build --release
 
-      - name: Package binary
+      - name: Build .deb package
+        run: cargo deb --no-build
+
+      - name: Upload .deb artifact (PRs and branches)
+        uses: actions/upload-artifact@v4
+        with:
+          name: timeoracle-daemon-deb
+          path: daemon/target/debian/*.deb
+          retention-days: 14
+
+      - name: Upload binary artifact (PRs and branches)
+        uses: actions/upload-artifact@v4
+        with:
+          name: timeoracle-daemon-binary
+          path: daemon/target/release/timeoracle-daemon
+          retention-days: 14
+
+      - name: Prepare release assets
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           cd target/release
           tar czf timeoracle-daemon-linux-x86_64.tar.gz timeoracle-daemon
           sha256sum timeoracle-daemon-linux-x86_64.tar.gz > timeoracle-daemon-linux-x86_64.tar.gz.sha256
-
-      - name: Upload artifact (PRs and branches)
-        uses: actions/upload-artifact@v4
-        with:
-          name: timeoracle-daemon-linux-x86_64
-          path: daemon/target/release/timeoracle-daemon
-          retention-days: 14
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -53,5 +67,6 @@ jobs:
           name: Daemon ${{ github.ref_name }}
           generate_release_notes: true
           files: |
+            daemon/target/debian/*.deb
             daemon/target/release/timeoracle-daemon-linux-x86_64.tar.gz
             daemon/target/release/timeoracle-daemon-linux-x86_64.tar.gz.sha256

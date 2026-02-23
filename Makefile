@@ -48,7 +48,7 @@ dev-superuser:
 		echo "  make dev-superuser admin@example.com"; \
 		echo "  make dev-superuser --help"; \
 	else \
-		docker compose -p $(COMPOSE_PROJECT_NAME_DEV) -f docker-compose.yaml -f docker-compose.override.yaml exec -w /app server python scripts/make_superuser.py $(ARGS); \
+		docker compose -p $(COMPOSE_PROJECT_NAME_DEV) -f docker-compose.yaml -f docker-compose.override.yaml exec -w /app server uv run python scripts/make_superuser.py $(ARGS); \
 	fi
 
 dev-user:
@@ -58,7 +58,7 @@ dev-user:
 		echo "  make dev-user user@example.com mypassword"; \
 		echo "  make dev-user --help                        # Show help"; \
 	else \
-		docker compose -p $(COMPOSE_PROJECT_NAME_DEV) -f docker-compose.yaml -f docker-compose.override.yaml exec -w /app server python scripts/create_user.py $(ARGS); \
+		docker compose -p $(COMPOSE_PROJECT_NAME_DEV) -f docker-compose.yaml -f docker-compose.override.yaml exec -w /app server uv run python scripts/create_user.py $(ARGS); \
 	fi
 
 prod-up:
@@ -87,7 +87,7 @@ prod-superuser:
 		echo "  make prod-superuser admin@example.com"; \
 		echo "  make prod-superuser --help"; \
 	else \
-		docker compose -p $(COMPOSE_PROJECT_NAME_PROD) -f docker-compose.yaml -f docker-compose.prod.yaml exec -w /app server python scripts/make_superuser.py $(ARGS); \
+		docker compose -p $(COMPOSE_PROJECT_NAME_PROD) -f docker-compose.yaml -f docker-compose.prod.yaml exec -w /app server uv run python scripts/make_superuser.py $(ARGS); \
 	fi
 
 prod-user:
@@ -97,5 +97,5 @@ prod-user:
 		echo "  make prod-user user@example.com mypassword"; \
 		echo "  make prod-user --help                        # Show help"; \
 	else \
-		docker compose -p $(COMPOSE_PROJECT_NAME_PROD) -f docker-compose.yaml -f docker-compose.prod.yaml exec -w /app server python scripts/create_user.py $(ARGS); \
+		docker compose -p $(COMPOSE_PROJECT_NAME_PROD) -f docker-compose.yaml -f docker-compose.prod.yaml exec -w /app server uv run python scripts/create_user.py $(ARGS); \
 	fi
