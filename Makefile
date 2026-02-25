@@ -61,6 +61,16 @@ dev-user:
 		docker compose -p $(COMPOSE_PROJECT_NAME_DEV) -f docker-compose.yaml -f docker-compose.override.yaml exec -w /app server uv run python scripts/create_user.py $(ARGS); \
 	fi
 
+dev-rebuild-sessions:
+	@if [ -z "$(word 1,$(ARGS))" ]; then \
+		echo "Usage: make dev-rebuild-sessions <email> [--date YYYY-MM-DD]"; \
+		echo "Examples:"; \
+		echo "  make dev-rebuild-sessions user@example.com              # today"; \
+		echo "  make dev-rebuild-sessions user@example.com --date 2026-02-23"; \
+	else \
+		docker compose -p $(COMPOSE_PROJECT_NAME_DEV) -f docker-compose.yaml -f docker-compose.override.yaml exec -w /app server uv run python scripts/rebuild_sessions.py $(ARGS); \
+	fi
+
 prod-up:
 	docker compose -p $(COMPOSE_PROJECT_NAME_PROD) -f docker-compose.yaml -f docker-compose.prod.yaml up -d $(ARGS)
 

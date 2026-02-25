@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,6 +37,12 @@ class ActivitySessionRepositoryInterface(ABC):
 
     @abstractmethod
     async def get_latest_session(self, user_id: UUID) -> Optional[ActivitySessionModel]:
+        pass
+
+    @abstractmethod
+    async def get_earliest_affected_start(
+        self, user_id: UUID, from_time: datetime,
+    ) -> Optional[datetime]:
         pass
 
     @abstractmethod
@@ -121,8 +127,25 @@ class ActivitySessionRepository(ActivitySessionRepositoryInterface):
         query = (
             select(ActivitySessionModel)
             .where(ActivitySessionModel.user_id == user_id)
-            .order_by(ActivitySessionModel.start_time.desc())
+            .order_by(ActivitySessionModel.end_time.desc())
             .limit(1)
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_earliest_affected_start(
+        self, user_id: UUID, from_time: datetime,
+    ) -> Optional[datetime]:
+        """Get the earliest start_time of any session overlapping with [from_time, inf)."""
+        query = (
+            select(func.min(ActivitySessionModel.start_time))
+            .where(
+                ActivitySessionModel.user_id == user_id,
+                or_(
+                    ActivitySessionModel.start_time >= from_time,
+                    ActivitySessionModel.end_time > from_time,
+                ),
+            )
         )
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
@@ -132,7 +155,10 @@ class ActivitySessionRepository(ActivitySessionRepositoryInterface):
             delete(ActivitySessionModel)
             .where(
                 ActivitySessionModel.user_id == user_id,
-                ActivitySessionModel.start_time >= from_time,
+                or_(
+                    ActivitySessionModel.start_time >= from_time,
+                    ActivitySessionModel.end_time > from_time,
+                ),
             )
         )
         result = await self.session.execute(stmt)

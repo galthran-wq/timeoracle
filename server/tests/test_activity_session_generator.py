@@ -151,6 +151,42 @@ class TestActivitySessionGenerator:
         assert "Terminal" not in app_names
         assert sessions[0].app_name == "Firefox"
 
+    async def test_noise_sessions_dropped_when_finalized(
+        self, db_session: AsyncSession, test_user: UserModel,
+    ):
+        """Short sessions (< 2 min) that are past the merge window get removed."""
+        activity_repo = ActivityEventRepository(db_session)
+        session_repo = ActivitySessionRepository(db_session)
+        generator = ActivitySessionGenerator(activity_repo, session_repo)
+
+        # Use a past date so all sessions are finalized
+        base = datetime(2026, 2, 22, 14, 0, tzinfo=timezone.utc)
+        events = [
+            # Long Chrome session (10 min) — kept
+            _event("active_window", base, app_name="Chrome", window_title="YouTube"),
+            _event("active_window", base + timedelta(minutes=10), app_name="Chrome", window_title="GitHub"),
+            # 30-second Telegram check — should be dropped (short + finalized)
+            _event("active_window", base + timedelta(minutes=20), app_name="Telegram", window_title="Chat"),
+            # 5-second terminal glance — should be dropped
+            _event("active_window", base + timedelta(minutes=20, seconds=30), app_name="Terminal", window_title="bash"),
+            _event("active_window", base + timedelta(minutes=20, seconds=35), app_name="Terminal", window_title="bash"),
+            # Back to Chrome for 15 min — kept
+            _event("active_window", base + timedelta(minutes=20, seconds=40), app_name="Chrome", window_title="Docs"),
+            _event("active_window", base + timedelta(minutes=35), app_name="Firefox", window_title="End"),
+        ]
+        await _seed_events(activity_repo, test_user.id, events)
+
+        await generator.generate_for_date(test_user.id, date(2026, 2, 22))
+
+        sessions = await session_repo.get_by_date_range(
+            test_user.id, date(2026, 2, 22), date(2026, 2, 22), limit=100, offset=0,
+        )
+        app_names = [s.app_name for s in sessions]
+        # Chrome merges into one big session; Telegram and Terminal are noise
+        assert "Telegram" not in app_names, f"Telegram should be dropped: {app_names}"
+        assert "Terminal" not in app_names, f"Terminal should be dropped: {app_names}"
+        assert "Chrome" in app_names
+
     async def test_regeneration_replaces_old_sessions(
         self, db_session: AsyncSession, test_user: UserModel,
     ):
@@ -414,3 +450,62 @@ class TestIncrementalGeneration:
 
         count = await generator.generate_incremental(test_user.id, [])
         assert count == 0
+
+    async def test_multi_batch_rapid_switching_merges_correctly(
+        self, db_session: AsyncSession, test_user: UserModel,
+    ):
+        """Simulate real-world scenario: rapid Chrome↔Cursor switching across
+        multiple daemon flush batches.  All Chrome segments should merge into
+        one session, not fragment into 4."""
+        activity_repo = ActivityEventRepository(db_session)
+        session_repo = ActivitySessionRepository(db_session)
+        generator = ActivitySessionGenerator(activity_repo, session_repo)
+
+        base = datetime(2026, 2, 22, 19, 14, tzinfo=timezone.utc)
+
+        # Batch 1: rapid Chrome↔Cursor switching (19:14 - 19:20)
+        batch1 = [
+            _event("active_window", base, app_name="Chrome", window_title="GitHub"),
+            _event("active_window", base + timedelta(seconds=5), app_name="Cursor", window_title="main.py"),
+            _event("active_window", base + timedelta(seconds=10), app_name="Chrome", window_title="YouTube"),
+            _event("active_window", base + timedelta(seconds=15), app_name="Cursor", window_title="utils.py"),
+            _event("active_window", base + timedelta(seconds=45), app_name="Chrome", window_title="PR"),
+            _event("active_window", base + timedelta(minutes=2), app_name="Cursor", window_title="test.py"),
+            _event("active_window", base + timedelta(minutes=5), app_name="Chrome", window_title="Docs"),
+        ]
+        await _seed_events(activity_repo, test_user.id, batch1)
+        await generator.generate_incremental(test_user.id, [e.timestamp for e in batch1])
+
+        # Batch 2: Telegram break, then back to Chrome (19:24 - 19:30)
+        batch2 = [
+            _event("active_window", base + timedelta(minutes=10), app_name="Telegram", window_title="Chat"),
+            _event("active_window", base + timedelta(minutes=11), app_name="Chrome", window_title="Calendar"),
+            _event("active_window", base + timedelta(minutes=13), app_name="Cursor", window_title="index.ts"),
+            _event("active_window", base + timedelta(minutes=15), app_name="Chrome", window_title="Search"),
+        ]
+        await _seed_events(activity_repo, test_user.id, batch2)
+        await generator.generate_incremental(test_user.id, [e.timestamp for e in batch2])
+
+        # Batch 3: more Telegram, then Chrome again (19:32 - 19:38)
+        batch3 = [
+            _event("active_window", base + timedelta(minutes=18), app_name="Telegram", window_title="Group"),
+            _event("active_window", base + timedelta(minutes=19), app_name="Chrome", window_title="New Tab"),
+            _event("active_window", base + timedelta(minutes=22), app_name="Cursor", window_title="api.py"),
+            _event("active_window", base + timedelta(minutes=24), app_name="Chrome", window_title="MDN"),
+        ]
+        await _seed_events(activity_repo, test_user.id, batch3)
+        await generator.generate_incremental(test_user.id, [e.timestamp for e in batch3])
+
+        sessions = await session_repo.get_by_date_range(
+            test_user.id, date(2026, 2, 22), date(2026, 2, 22), limit=100, offset=0,
+        )
+        app_names = [s.app_name for s in sessions]
+
+        # Chrome should be ONE merged session (all gaps < 5 min)
+        assert app_names.count("Chrome") == 1, (
+            f"Expected 1 Chrome session, got {app_names.count('Chrome')}: {app_names}"
+        )
+        # Cursor has 3 sessions because gaps between usage are 8 and 7 min (> MERGE_GAP)
+        assert app_names.count("Cursor") == 3
+        # Telegram sessions are short (1 min) and finalized → dropped as noise
+        assert app_names.count("Telegram") == 0
