@@ -328,8 +328,7 @@ mod macos_login {
                 let win_frame = window.frame();
                 let abs_x = mouse_loc.x - win_frame.origin.x;
                 let abs_y = mouse_loc.y - win_frame.origin.y;
-                let title_bar_height = 28.0;
-                let content_y = abs_y - title_bar_height;
+                let content_y = abs_y;
 
                 if let Some(ref event) = event {
                     let event_type = unsafe { event.r#type() };
@@ -834,7 +833,8 @@ pub fn run(config: Config) -> anyhow::Result<()> {
     use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSEventMask};
     use objc2_foundation::{MainThreadMarker, NSDate, NSDefaultRunLoopMode, NSRunLoop};
 
-    let config = if config.auth_token.is_none() {
+    let needs_login = config.auth_token.is_none();
+    let config = if needs_login {
         macos_login::show_login_and_wait(&config)?
     } else {
         config
@@ -851,7 +851,9 @@ pub fn run(config: Config) -> anyhow::Result<()> {
 
     state.stats_window.init(mtm);
 
-    app.finishLaunching();
+    if !needs_login {
+        app.finishLaunching();
+    }
 
     let mode = unsafe { NSDefaultRunLoopMode };
     let run_loop = NSRunLoop::currentRunLoop();
