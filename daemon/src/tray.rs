@@ -305,8 +305,6 @@ mod macos_login {
         let mut quit = false;
         let mode = unsafe { NSDefaultRunLoopMode };
 
-        let login_btn_id = login_btn.as_ref() as *const _ as usize;
-
         loop {
             let expiration = NSDate::dateWithTimeIntervalSinceNow(0.05);
             let event = app.nextEventMatchingMask_untilDate_inMode_dequeue(
