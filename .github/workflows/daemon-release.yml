@@ -86,52 +86,30 @@ jobs:
       - name: Build release binary
         run: cargo build --release
 
-      - name: Create .dmg
+      - name: Create .pkg installer
         run: |
-          mkdir -p dmg-contents
-          cp target/release/timeoracle-daemon dmg-contents/
+          mkdir -p pkg-root/usr/local/bin
+          cp target/release/timeoracle-daemon pkg-root/usr/local/bin/
 
-          cat > dmg-contents/README.txt << 'EOF'
-          TimeOracle Daemon
-          =================
+          VERSION="${GITHUB_REF_NAME#daemon-v}"
+          VERSION="${VERSION:-0.0.0}"
 
-          Install:
-            1. Copy timeoracle-daemon to /usr/local/bin/ (or a directory in your PATH)
-            2. Run: timeoracle-daemon login --server-url <your-server>
-            3. Run: timeoracle-daemon install
-            4. Run: launchctl load ~/Library/LaunchAgents/com.timeoracle.daemon.plist
+          pkgbuild \
+            --root pkg-root \
+            --identifier com.timeoracle.daemon \
+            --version "$VERSION" \
+            --install-location / \
+            timeoracle-daemon-macos-arm64.pkg
 
-          Or run directly:
-            timeoracle-daemon run --headless
+          shasum -a 256 timeoracle-daemon-macos-arm64.pkg > timeoracle-daemon-macos-arm64.pkg.sha256
 
-          Note: Grant Screen Recording permission in
-            System Settings > Privacy & Security > Screen Recording
-          for window title capture.
-          EOF
-
-          hdiutil create \
-            -volname "TimeOracle Daemon" \
-            -srcfolder dmg-contents \
-            -ov \
-            -format UDZO \
-            timeoracle-daemon-macos-arm64.dmg
-
-          shasum -a 256 timeoracle-daemon-macos-arm64.dmg > timeoracle-daemon-macos-arm64.dmg.sha256
-
-      - name: Upload .dmg artifact
+      - name: Upload .pkg artifact
         uses: actions/upload-artifact@v4
         with:
-          name: timeoracle-daemon-dmg
+          name: timeoracle-daemon-pkg
           path: |
-            daemon/timeoracle-daemon-macos-arm64.dmg
-            daemon/timeoracle-daemon-macos-arm64.dmg.sha256
-          retention-days: 14
-
-      - name: Upload macOS binary artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: timeoracle-daemon-macos-binary
-          path: daemon/target/release/timeoracle-daemon
+            daemon/timeoracle-daemon-macos-arm64.pkg
+            daemon/timeoracle-daemon-macos-arm64.pkg.sha256
           retention-days: 14
 
   release:
@@ -148,7 +126,7 @@ jobs:
       - name: Download macOS release assets
         uses: actions/download-artifact@v4
         with:
-          name: timeoracle-daemon-dmg
+          name: timeoracle-daemon-pkg
           path: release-assets/
 
       - name: Create GitHub Release
