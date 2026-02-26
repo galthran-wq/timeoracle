@@ -189,9 +189,10 @@ fn poll_and_update(state: &mut TrayState) -> bool {
 mod macos_stats {
     use crate::engine::DaemonStatus;
     use objc2::rc::Retained;
+    use objc2::MainThreadOnly;
     use objc2_app_kit::{
-        NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSColor, NSFont,
-        NSTextField, NSWindow, NSWindowStyleMask,
+        NSApplication, NSBackingStoreType, NSColor, NSFont, NSTextField, NSWindow,
+        NSWindowStyleMask,
     };
     use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize, NSString};
 
