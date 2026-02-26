@@ -42,7 +42,7 @@ objc2-app-kit = { version = "0.3", features = [
     "NSWorkspace", "NSRunningApplication", "libc",
     "NSApplication", "NSEvent",
     "NSWindow", "NSView", "NSTextField", "NSColor", "NSFont",
-    "NSScreen",
+    "NSScreen", "NSButton", "NSSecureTextField", "NSControl",
 ] }
 objc2-core-graphics = { version = "0.3", features = ["CGWindow"] }
 objc2-core-foundation = { version = "0.3", features = ["CFString", "CFArray", "CFDictionary", "CFNumber"] }

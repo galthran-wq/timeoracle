@@ -2,10 +2,10 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "timeoracle-daemon", about = "TimeOracle activity tracking daemon")]
+#[command(name = "timeoracle-daemon", about = "TimeOracle activity tracking daemon", version)]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Command,
+    pub command: Option<Command>,
 }
 
 #[derive(Subcommand, Debug)]

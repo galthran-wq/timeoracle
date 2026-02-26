@@ -16,25 +16,19 @@ struct TokenResponse {
     token_type: String,
 }
 
-/// Perform interactive login: prompt for email/password, POST to server, save token.
-pub async fn login(server_url: &str, config_path: &Path) -> Result<()> {
-    println!("Logging in to {server_url}");
-
-    print!("Email: ");
-    use std::io::Write;
-    std::io::stdout().flush()?;
-
-    let mut email = String::new();
-    std::io::stdin().read_line(&mut email)?;
-    let email = email.trim().to_string();
-
-    let password = rpassword::prompt_password("Password: ")
-        .map_err(|e| DaemonError::Auth(format!("Failed to read password: {e}")))?;
-
+pub async fn login_with_credentials(
+    server_url: &str,
+    email: &str,
+    password: &str,
+    config_path: &Path,
+) -> Result<()> {
     let client = reqwest::Client::new();
     let resp = client
         .post(format!("{server_url}/api/users/login"))
-        .json(&LoginRequest { email, password })
+        .json(&LoginRequest {
+            email: email.to_string(),
+            password: password.to_string(),
+        })
         .send()
         .await?;
 
@@ -52,6 +46,25 @@ pub async fn login(server_url: &str, config_path: &Path) -> Result<()> {
     config.server_url = server_url.to_string();
     config.auth_token = Some(token_resp.access_token);
     config.save(config_path)?;
+
+    Ok(())
+}
+
+pub async fn login(server_url: &str, config_path: &Path) -> Result<()> {
+    println!("Logging in to {server_url}");
+
+    print!("Email: ");
+    use std::io::Write;
+    std::io::stdout().flush()?;
+
+    let mut email = String::new();
+    std::io::stdin().read_line(&mut email)?;
+    let email = email.trim().to_string();
+
+    let password = rpassword::prompt_password("Password: ")
+        .map_err(|e| DaemonError::Auth(format!("Failed to read password: {e}")))?;
+
+    login_with_credentials(server_url, &email, &password, config_path).await?;
 
     println!("Login successful! Token saved to {}", config_path.display());
     Ok(())

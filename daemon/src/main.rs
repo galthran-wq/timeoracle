@@ -18,21 +18,21 @@ use tracing_subscriber::EnvFilter;
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
+    let command = cli.command.unwrap_or(Command::Run { headless: false, config: None });
+
+    match command {
         Command::Run { headless, config: config_path } => {
             let config_path = config_path
                 .unwrap_or_else(|| Config::default_config_path().expect("Cannot determine config path"));
             let config = Config::load(&config_path)?;
 
             init_tracing(&config.log_level);
-
-            if config.auth_token.is_none() {
-                anyhow::bail!("Not logged in. Run `timeoracle-daemon login` first.");
-            }
-
             tracing::info!("Starting TimeOracle daemon");
 
             if headless {
+                if config.auth_token.is_none() {
+                    anyhow::bail!("Not logged in. Run `timeoracle-daemon login` first.");
+                }
                 run_headless(config)?;
             } else {
                 run_with_tray(config)?;
