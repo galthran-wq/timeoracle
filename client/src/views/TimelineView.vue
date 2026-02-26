@@ -122,10 +122,10 @@ const sessionApps = computed(() => {
   for (const s of activityStore.sessions) {
     if (!map.has(s.app_name)) map.set(s.app_name, idx++)
   }
-  return [...map.entries()].map(([app, i]) => [
-    app,
-    SESSION_PALETTE[i % SESSION_PALETTE.length].main,
-  ] as [string, string])
+  return [...map.entries()].map(([app, i]) => {
+    const color = SESSION_PALETTE[i % SESSION_PALETTE.length]
+    return { app, main: color.main, container: color.container }
+  })
 })
 
 function syncEvents() {
@@ -206,10 +206,10 @@ function openCreate() {
   <div style="height: 100%; display: flex; flex-direction: column">
     <NSpace justify="end" align="center" style="margin-bottom: 12px">
       <NSpace v-if="showSessions && sessionApps.length" :size="8" align="center">
-        <template v-for="[app, color] in sessionApps" :key="app">
+        <template v-for="item in sessionApps" :key="item.app">
           <NSpace :size="4" align="center">
-            <div :style="{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: color }" />
-            <NText depth="3" style="font-size: 12px">{{ app }}</NText>
+            <div :style="{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: item.container, borderLeft: `3px solid ${item.main}`, boxSizing: 'border-box' }" />
+            <NText depth="3" style="font-size: 12px">{{ item.app }}</NText>
           </NSpace>
         </template>
       </NSpace>

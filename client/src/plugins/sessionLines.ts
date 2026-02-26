@@ -2,6 +2,8 @@ import type { ActivitySession } from '@/types/activity'
 
 interface SessionColor {
   main: string
+  container: string
+  onContainer: string
 }
 
 interface DayBoundaries {
@@ -9,10 +11,8 @@ interface DayBoundaries {
   end: number
 }
 
-const LINE_WIDTH = 4
-const LANE_GAP = 12
-const LANE_STRIDE = LINE_WIDTH + LANE_GAP
-const LABEL_STAGGER = 16  // vertical offset per lane to avoid overlap
+const STRIP_WIDTH = 40
+const MIN_HEIGHT_FOR_INITIAL = 7 // minutes
 
 const MINUTE_MULTIPLIER = 100 / 60
 
@@ -95,6 +95,10 @@ function buildAppColorMap(sessions: ActivitySession[]): Map<string, number> {
     }
   }
   return map
+}
+
+function sessionDurationMinutes(session: ActivitySession): number {
+  return (new Date(session.end_time).getTime() - new Date(session.start_time).getTime()) / 60000
 }
 
 export function createSessionLinesPlugin(palette: SessionColor[]) {
@@ -181,9 +185,7 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
     const dayBounds = getDayBounds()
     const pointsPerDay = getPointsPerDay()
 
-    const { assignments, maxLanes } = assignLanes(daySessions)
-
-    const lanesWidth = maxLanes * LANE_STRIDE
+    const { assignments } = assignLanes(daySessions)
 
     const container = document.createElement('div')
     container.className = 'session-lines-container'
@@ -191,7 +193,7 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
 
     for (const { session, lane } of assignments) {
       const colorIdx = appColorMap.get(session.app_name)!
-      const color = palette[colorIdx % palette.length].main
+      const color = palette[colorIdx % palette.length]
 
       const [startH, startM] = isoToHM(session.start_time)
       const [endH, endM] = isoToHM(session.end_time)
@@ -202,22 +204,50 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
 
       if (heightPct <= 0) continue
 
-      const leftOffset = lane * LANE_STRIDE
+      const leftOffset = lane * STRIP_WIDTH
 
-      const line = document.createElement('div')
-      line.className = 'session-line'
-      line.title = session.app_name
-      line.style.cssText = `position:absolute;top:${topPct}%;height:${heightPct}%;left:${leftOffset}px;width:${LINE_WIDTH}px;background:${color};border-radius:2px;`
+      const strip = document.createElement('div')
+      strip.className = 'session-strip'
+      strip.title = session.app_name
+      strip.style.cssText = [
+        'position:absolute',
+        `top:${topPct}%`,
+        `height:${heightPct}%`,
+        `left:${leftOffset}px`,
+        `width:${STRIP_WIDTH}px`,
+        `background:${color.container}`,
+        `border-left:3px solid ${color.main}`,
+        'border-radius:2px',
+        'box-sizing:border-box',
+        'pointer-events:auto',
+        'cursor:default',
+      ].join(';') + ';'
 
-      // Stagger labels vertically per lane so overlapping sessions don't clash
-      const labelOffset = lane * LABEL_STAGGER
-      const label = document.createElement('div')
-      label.className = 'session-line-label'
-      label.textContent = session.app_name
-      label.style.cssText = `position:absolute;top:calc(${topPct}% + ${labelOffset}px);left:${leftOffset + LINE_WIDTH + 3}px;font-size:12px;line-height:1;color:${color};font-weight:600;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;`
+      if (session.icon) {
+        const img = document.createElement('img')
+        img.src = session.icon
+        img.width = 16
+        img.height = 16
+        img.style.cssText = 'display:block;margin:4px auto 0;pointer-events:none;'
+        strip.appendChild(img)
+      } else if (sessionDurationMinutes(session) >= MIN_HEIGHT_FOR_INITIAL) {
+        const initial = document.createElement('div')
+        initial.textContent = session.app_name.charAt(0).toUpperCase()
+        initial.style.cssText = [
+          'text-align:center',
+          'margin-top:4px',
+          'font-size:14px',
+          'font-weight:600',
+          'line-height:1',
+          `color:${color.onContainer}`,
+          'opacity:0.6',
+          'pointer-events:none',
+          'user-select:none',
+        ].join(';') + ';'
+        strip.appendChild(initial)
+      }
 
-      container.appendChild(line)
-      container.appendChild(label)
+      container.appendChild(strip)
     }
 
     dayEl.appendChild(container)

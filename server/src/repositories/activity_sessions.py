@@ -66,6 +66,7 @@ class ActivitySessionRepository(ActivitySessionRepositoryInterface):
                 "window_title": s["window_title"],
                 "window_titles": s.get("window_titles"),
                 "url": s.get("url"),
+                "icon": s.get("icon"),
                 "start_time": s["start_time"],
                 "end_time": s["end_time"],
                 "date": s["date"],

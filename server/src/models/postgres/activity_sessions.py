@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, String, DateTime, Date, ForeignKey, Index
+from sqlalchemy import Column, String, Text, DateTime, Date, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 
@@ -20,6 +20,7 @@ class ActivitySessionModel(Base):
     window_title = Column(String(2000), nullable=False)
     window_titles = Column(JSONB, nullable=True)
     url = Column(String(2000), nullable=True)
+    icon = Column(Text, nullable=True)
     start_time = Column(DateTime(timezone=True), nullable=False)
     end_time = Column(DateTime(timezone=True), nullable=False)
     date = Column(Date, nullable=False)
