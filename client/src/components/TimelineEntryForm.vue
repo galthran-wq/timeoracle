@@ -9,7 +9,7 @@ import {
   NColorPicker,
   NText,
 } from 'naive-ui'
-import { set, format } from 'date-fns'
+import { set } from 'date-fns'
 import { formatISO } from 'date-fns'
 import type { TimelineEntry } from '@/types/timeline'
 import { DEFAULT_ENTRY_COLOR, CATEGORY_COLORS } from '@/constants/palette'
@@ -125,11 +125,6 @@ function buildISOFromTimePicker(timeMs: number): string {
   const merged = set(d, { year: dateParts[0], month: dateParts[1] - 1, date: dateParts[2] })
   return formatISO(merged)
 }
-
-const timeDisplay = computed(() => {
-  if (startTime.value === null || endTime.value === null) return ''
-  return format(new Date(startTime.value), 'HH:mm') + ' – ' + format(new Date(endTime.value), 'HH:mm')
-})
 
 function handleSave() {
   if (!label.value || startTime.value === null || endTime.value === null) return

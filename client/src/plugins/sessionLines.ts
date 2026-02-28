@@ -11,6 +11,32 @@ const MIN_HEIGHT_FOR_INITIAL = 7 // minutes
 
 const MINUTE_MULTIPLIER = 100 / 60
 
+function applyAlpha(color: string, alpha: number): string {
+  const trimmed = color.trim()
+  const rgbaMatch = trimmed.match(/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)$/)
+  if (rgbaMatch) {
+    const a = Math.max(0, Math.min(1, Number(rgbaMatch[4]) * alpha))
+    return `rgba(${rgbaMatch[1]}, ${rgbaMatch[2]}, ${rgbaMatch[3]}, ${a})`
+  }
+  const rgbMatch = trimmed.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/)
+  if (rgbMatch) {
+    return `rgba(${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}, ${alpha})`
+  }
+  if (trimmed.startsWith('#')) {
+    let hex = trimmed.slice(1)
+    if (hex.length === 3) {
+      hex = hex.split('').map((c) => c + c).join('')
+    }
+    if (hex.length === 6) {
+      const r = Number.parseInt(hex.slice(0, 2), 16)
+      const g = Number.parseInt(hex.slice(2, 4), 16)
+      const b = Number.parseInt(hex.slice(4, 6), 16)
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    }
+  }
+  return color
+}
+
 function timePointsFromHM(hours: number, minutes: number): number {
   let minutePoints = (minutes * MINUTE_MULTIPLIER).toString()
   if (minutePoints.split('.')[0].length < 2) minutePoints = '0' + minutePoints
@@ -209,7 +235,8 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
       if (heightPct <= 0) continue
 
       const leftOffset = lane * STRIP_WIDTH
-      const bg = dark ? color.darkContainer : color.container
+      const stripOpacity = dark ? 0.6 : 0.75
+      const bg = applyAlpha(dark ? color.darkContainer : color.container, stripOpacity)
 
       const strip = document.createElement('div')
       strip.className = 'session-strip'
@@ -226,7 +253,6 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
         'box-sizing:border-box',
         'pointer-events:auto',
         'cursor:default',
-        `opacity:${dark ? '0.6' : '0.75'}`,
       ].join(';') + ';'
 
       if (session.icon) {
@@ -247,7 +273,6 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
           'font-weight:600',
           'line-height:1',
           `color:${textColor}`,
-          `opacity:${dark ? '1.67' : '1.33'}`,
           'pointer-events:none',
           'user-select:none',
         ].join(';') + ';'

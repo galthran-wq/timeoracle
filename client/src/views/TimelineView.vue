@@ -238,7 +238,6 @@ function openCreate(e: MouseEvent) {
           <template #timeGridEvent="{ calendarEvent }">
             <TimeGridEvent
               :calendar-event="calendarEvent"
-              :is-dark="themeStore.isDark"
             />
           </template>
         </ScheduleXCalendar>

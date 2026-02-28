@@ -4,7 +4,6 @@ import { DEFAULT_ENTRY_COLOR } from '@/constants/palette'
 
 const props = defineProps<{
   calendarEvent: any
-  isDark: boolean
 }>()
 
 const eventColor = computed(() => props.calendarEvent._color || DEFAULT_ENTRY_COLOR)

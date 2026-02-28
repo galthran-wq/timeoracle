@@ -40,9 +40,10 @@ export function useDayAnalytics(
   })
 
   function formatMinutes(mins: number): string {
-    if (mins < 60) return `${Math.round(mins)}m`
-    const h = Math.floor(mins / 60)
-    const m = Math.round(mins % 60)
+    const rounded = Math.round(mins)
+    if (rounded < 60) return `${rounded}m`
+    const h = Math.floor(rounded / 60)
+    const m = rounded % 60
     return m > 0 ? `${h}h ${m}m` : `${h}h`
   }
 

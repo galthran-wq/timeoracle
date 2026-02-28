@@ -245,7 +245,6 @@ body {
 .stat-card {
   padding: 16px 20px;
   border-radius: var(--to-radius-md);
-  border-left: 3px solid var(--to-brand);
   background: var(--to-surface-secondary);
   border: 1px solid var(--to-border);
   border-left: 3px solid var(--to-brand);
