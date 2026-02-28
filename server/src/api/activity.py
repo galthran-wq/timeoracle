@@ -9,7 +9,6 @@ from src.core.database import get_postgres_session
 
 from src.models.postgres.users import UserModel
 from src.repositories.activity_events import ActivityEventRepository
-from src.repositories.activity_sessions import ActivitySessionRepository
 from src.schemas.activity_events import (
     ActivityEventBatchRequest,
     ActivityEventBatchResponse,
@@ -17,7 +16,6 @@ from src.schemas.activity_events import (
     ActivityEventResponse,
     ActivityEventType,
 )
-from src.services.activity_session_generator import ActivitySessionGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -55,16 +53,6 @@ async def ingest_events(
     except Exception:
         logger.exception("Failed to ingest activity events for user %s", current_user.id)
         raise HTTPException(status_code=500, detail="Internal server error")
-
-    if inserted_count > 0:
-        try:
-            session_repo = ActivitySessionRepository(repo.session)
-            generator = ActivitySessionGenerator(repo, session_repo)
-            await generator.generate_incremental(
-                current_user.id, [e.timestamp for e in request.events],
-            )
-        except Exception:
-            logger.exception("Inline session generation failed for user %s", current_user.id)
 
     return ActivityEventBatchResponse(inserted_count=inserted_count)
 

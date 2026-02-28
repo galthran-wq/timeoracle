@@ -1,5 +1,5 @@
-import logging
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta, timezone
+from uuid import UUID, uuid5
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,21 +7,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.auth import get_current_user
 from src.core.database import get_postgres_session
 from src.models.postgres.users import UserModel
-from src.repositories.activity_sessions import ActivitySessionRepository
+from src.repositories.activity_events import ActivityEventRepository
 from src.schemas.activity_sessions import (
     ActivitySessionListResponse,
     ActivitySessionResponse,
 )
-
-logger = logging.getLogger(__name__)
+from src.services.activity_session_generator import compute_sessions
 
 router = APIRouter(prefix="/api/activity/sessions", tags=["activity-sessions"])
 
+_SESSION_ID_NAMESPACE = UUID("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
 
-def get_session_repo(
+
+def _get_event_repo(
     session: AsyncSession = Depends(get_postgres_session),
-) -> ActivitySessionRepository:
-    return ActivitySessionRepository(session)
+) -> ActivityEventRepository:
+    return ActivityEventRepository(session)
 
 
 @router.get("", response_model=ActivitySessionListResponse)
@@ -31,23 +32,57 @@ async def list_sessions(
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     current_user: UserModel = Depends(get_current_user),
-    session_repo: ActivitySessionRepository = Depends(get_session_repo),
+    event_repo: ActivityEventRepository = Depends(_get_event_repo),
 ):
     start_date = date
-    if range == "week":
-        end_date = date + timedelta(days=6)
-    else:
-        end_date = date
+    end_date = date + timedelta(days=6) if range == "week" else date
 
-    sessions = await session_repo.get_by_date_range(
-        current_user.id, start_date, end_date, limit, offset,
+    day_start = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
+    day_end = datetime.combine(end_date, time.max, tzinfo=timezone.utc)
+
+    events = await event_repo.get_by_time_range(
+        current_user.id, day_start, day_end, limit=100_000, offset=0,
     )
-    total_count = await session_repo.count_by_date_range(
-        current_user.id, start_date, end_date,
+
+    if events:
+        latest_day_end = datetime.combine(
+            events[-1].timestamp.date(), time.max, tzinfo=timezone.utc,
+        )
+        cap_time = min(datetime.now(timezone.utc), latest_day_end)
+    else:
+        cap_time = datetime.now(timezone.utc)
+
+    cfg = current_user.session_config or {}
+    sessions = compute_sessions(
+        events,
+        cap_time,
+        merge_gap_seconds=cfg.get("merge_gap_seconds", 300),
+        min_session_seconds=cfg.get("min_session_seconds", 5),
+        noise_threshold_seconds=cfg.get("noise_threshold_seconds", 120),
     )
+
+    total_count = len(sessions)
+    page = sessions[offset:offset + limit]
 
     return ActivitySessionListResponse(
-        sessions=[ActivitySessionResponse.model_validate(s) for s in sessions],
+        sessions=[
+            ActivitySessionResponse(
+                id=uuid5(
+                    _SESSION_ID_NAMESPACE,
+                    f"{current_user.id}:{s['start_time'].isoformat()}:{s['app_name']}",
+                ),
+                user_id=current_user.id,
+                app_name=s["app_name"],
+                window_title=s["window_title"],
+                window_titles=s.get("window_titles"),
+                url=s.get("url"),
+                icon=None,
+                start_time=s["start_time"],
+                end_time=s["end_time"],
+                date=s["date"],
+            )
+            for s in page
+        ],
         total_count=total_count,
         limit=limit,
         offset=offset,
