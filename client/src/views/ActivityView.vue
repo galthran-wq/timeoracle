@@ -9,6 +9,7 @@ import {
   NPagination,
   NTag,
   NSpin,
+  NCard,
 } from 'naive-ui'
 import type { DataTableColumn } from 'naive-ui'
 import { format, startOfDay, endOfDay } from 'date-fns'
@@ -82,43 +83,50 @@ onMounted(fetchData)
 
 <template>
   <NSpace vertical :size="16">
-    <NSpace :size="12" align="center">
-      <NDatePicker
-        v-model:value="dateRange"
-        type="daterange"
-        clearable
-        style="width: 300px"
-      />
-      <NSelect
-        :value="eventType ?? ''"
-        :options="typeOptions"
-        style="width: 160px"
-        @update:value="(v: string) => (eventType = (v || null) as ActivityEventType | null)"
-      />
-      <NInput
-        v-model:value="appName"
-        placeholder="Filter by app name"
-        clearable
-        style="width: 200px"
-      />
-    </NSpace>
+    <div style="font-size: 15px; font-weight: 600">Activity Events</div>
+    <NCard size="small">
+      <NSpace vertical :size="16">
+        <div class="filter-toolbar">
+          <NSpace :size="12" align="center">
+            <NDatePicker
+              v-model:value="dateRange"
+              type="daterange"
+              clearable
+              style="width: 300px"
+            />
+            <NSelect
+              :value="eventType ?? ''"
+              :options="typeOptions"
+              style="width: 160px"
+              @update:value="(v: string) => (eventType = (v || null) as ActivityEventType | null)"
+            />
+            <NInput
+              v-model:value="appName"
+              placeholder="Filter by app name"
+              clearable
+              style="width: 200px"
+            />
+          </NSpace>
+        </div>
 
-    <NSpin :show="activityStore.loading">
-      <NDataTable
-        :columns="columns"
-        :data="activityStore.events"
-        :bordered="false"
-        :row-key="(row: ActivityEvent) => row.id"
-        size="small"
-      />
-    </NSpin>
+        <NSpin :show="activityStore.loading">
+          <NDataTable
+            :columns="columns"
+            :data="activityStore.events"
+            :bordered="false"
+            :row-key="(row: ActivityEvent) => row.id"
+            size="small"
+          />
+        </NSpin>
 
-    <NSpace justify="end">
-      <NPagination
-        v-model:page="page"
-        :page-count="Math.max(1, Math.ceil(activityStore.totalCount / PAGE_SIZE))"
-        :page-slot="7"
-      />
-    </NSpace>
+        <NSpace justify="end">
+          <NPagination
+            v-model:page="page"
+            :page-count="Math.max(1, Math.ceil(activityStore.totalCount / PAGE_SIZE))"
+            :page-slot="7"
+          />
+        </NSpace>
+      </NSpace>
+    </NCard>
   </NSpace>
 </template>

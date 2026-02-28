@@ -4,6 +4,7 @@ import LoginView from '@/views/LoginView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import ActivityView from '@/views/ActivityView.vue'
 import TimelineView from '@/views/TimelineView.vue'
+import SettingsView from '@/views/SettingsView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -12,6 +13,7 @@ const router = createRouter({
     { path: '/', name: 'dashboard', component: DashboardView },
     { path: '/activity', name: 'activity', component: ActivityView },
     { path: '/timeline', name: 'timeline', component: TimelineView },
+    { path: '/settings', name: 'settings', component: SettingsView },
   ],
 })
 

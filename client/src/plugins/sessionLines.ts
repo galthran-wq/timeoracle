@@ -1,10 +1,5 @@
 import type { ActivitySession } from '@/types/activity'
-
-interface SessionColor {
-  main: string
-  container: string
-  onContainer: string
-}
+import type { SessionColor } from '@/constants/palette'
 
 interface DayBoundaries {
   start: number
@@ -15,6 +10,32 @@ const STRIP_WIDTH = 40
 const MIN_HEIGHT_FOR_INITIAL = 7 // minutes
 
 const MINUTE_MULTIPLIER = 100 / 60
+
+function applyAlpha(color: string, alpha: number): string {
+  const trimmed = color.trim()
+  const rgbaMatch = trimmed.match(/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)$/)
+  if (rgbaMatch) {
+    const a = Math.max(0, Math.min(1, Number(rgbaMatch[4]) * alpha))
+    return `rgba(${rgbaMatch[1]}, ${rgbaMatch[2]}, ${rgbaMatch[3]}, ${a})`
+  }
+  const rgbMatch = trimmed.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/)
+  if (rgbMatch) {
+    return `rgba(${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}, ${alpha})`
+  }
+  if (trimmed.startsWith('#')) {
+    let hex = trimmed.slice(1)
+    if (hex.length === 3) {
+      hex = hex.split('').map((c) => c + c).join('')
+    }
+    if (hex.length === 6) {
+      const r = Number.parseInt(hex.slice(0, 2), 16)
+      const g = Number.parseInt(hex.slice(2, 4), 16)
+      const b = Number.parseInt(hex.slice(4, 6), 16)
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    }
+  }
+  return color
+}
 
 function timePointsFromHM(hours: number, minutes: number): number {
   let minutePoints = (minutes * MINUTE_MULTIPLIER).toString()
@@ -168,6 +189,14 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
     rendering = false
   }
 
+  function isDark(): boolean {
+    try {
+      return $app?.config?.isDark?.value ?? false
+    } catch {
+      return false
+    }
+  }
+
   function renderDayColumn(
     dayEl: HTMLElement,
     dateStr: string,
@@ -184,12 +213,13 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
 
     const dayBounds = getDayBounds()
     const pointsPerDay = getPointsPerDay()
+    const dark = isDark()
 
     const { assignments } = assignLanes(daySessions)
 
     const container = document.createElement('div')
     container.className = 'session-lines-container'
-    container.style.cssText = `position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:0;overflow:hidden;`
+    container.style.cssText = `position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:3;overflow:hidden;`
 
     for (const { session, lane } of assignments) {
       const colorIdx = appColorMap.get(session.app_name)!
@@ -205,6 +235,8 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
       if (heightPct <= 0) continue
 
       const leftOffset = lane * STRIP_WIDTH
+      const stripOpacity = dark ? 0.6 : 0.75
+      const bg = applyAlpha(dark ? color.darkContainer : color.container, stripOpacity)
 
       const strip = document.createElement('div')
       strip.className = 'session-strip'
@@ -215,7 +247,7 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
         `height:${heightPct}%`,
         `left:${leftOffset}px`,
         `width:${STRIP_WIDTH}px`,
-        `background:${color.container}`,
+        `background:${bg}`,
         `border-left:3px solid ${color.main}`,
         'border-radius:2px',
         'box-sizing:border-box',
@@ -231,6 +263,7 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
         img.style.cssText = 'display:block;margin:4px auto 0;pointer-events:none;'
         strip.appendChild(img)
       } else if (sessionDurationMinutes(session) >= MIN_HEIGHT_FOR_INITIAL) {
+        const textColor = dark ? color.darkOnContainer : color.onContainer
         const initial = document.createElement('div')
         initial.textContent = session.app_name.charAt(0).toUpperCase()
         initial.style.cssText = [
@@ -239,8 +272,7 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
           'font-size:14px',
           'font-weight:600',
           'line-height:1',
-          `color:${color.onContainer}`,
-          'opacity:0.6',
+          `color:${textColor}`,
           'pointer-events:none',
           'user-select:none',
         ].join(';') + ';'

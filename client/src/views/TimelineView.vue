@@ -5,38 +5,35 @@ import { ScheduleXCalendar } from '@schedule-x/vue'
 import { createCalendar, viewDay, viewWeek } from '@schedule-x/calendar'
 import { createDragAndDropPlugin } from '@schedule-x/drag-and-drop'
 import { createResizePlugin } from '@schedule-x/resize'
+import { createCurrentTimePlugin } from '@schedule-x/current-time'
 import { formatISO } from 'date-fns'
 import { useTimelineStore } from '@/stores/timeline'
 import { useActivityStore } from '@/stores/activity'
+import { useThemeStore } from '@/stores/theme'
 import { ApiError } from '@/api/client'
 import { createSessionLinesPlugin } from '@/plugins/sessionLines'
 import TimelineEntryForm from '@/components/TimelineEntryForm.vue'
+import TimeGridEvent from '@/components/TimeGridEvent.vue'
 import type { TimelineEntry } from '@/types/timeline'
 
-import '@schedule-x/theme-default/dist/index.css'
+import { SESSION_PALETTE } from '@/constants/palette'
 
-const SESSION_PALETTE = [
-  { main: '#6366F1', container: '#E0E7FF', onContainer: '#312E81' }, // indigo
-  { main: '#14B8A6', container: '#CCFBF1', onContainer: '#134E4A' }, // teal
-  { main: '#F59E0B', container: '#FEF3C7', onContainer: '#78350F' }, // amber
-  { main: '#EC4899', container: '#FCE7F3', onContainer: '#831843' }, // pink
-  { main: '#8B5CF6', container: '#EDE9FE', onContainer: '#4C1D95' }, // violet
-  { main: '#10B981', container: '#D1FAE5', onContainer: '#064E3B' }, // emerald
-  { main: '#F97316', container: '#FFEDD5', onContainer: '#7C2D12' }, // orange
-  { main: '#06B6D4', container: '#CFFAFE', onContainer: '#155E75' }, // cyan
-]
+import '@schedule-x/theme-default/dist/index.css'
 
 const message = useMessage()
 const timelineStore = useTimelineStore()
 const activityStore = useActivityStore()
+const themeStore = useThemeStore()
 
 const showForm = ref(false)
 const editingEntry = ref<TimelineEntry | null>(null)
 const clickedTime = ref<string | undefined>(undefined)
+const clickPos = ref<{ x: number; y: number } | undefined>(undefined)
 const showSessions = ref(localStorage.getItem('showSessions') !== 'false')
 
 const dragAndDrop = createDragAndDropPlugin()
 const eventResize = createResizePlugin()
+const currentTime = createCurrentTimePlugin()
 const sessionLines = createSessionLinesPlugin(SESSION_PALETTE)
 
 const tz = Temporal.Now.timeZoneId()
@@ -60,6 +57,10 @@ function entryToEvent(e: TimelineEntry) {
     start: isoToZoned(e.start_time),
     end: isoToZoned(e.end_time),
     calendarId: 'timeline',
+    description: e.description ?? '',
+    _label: e.label,
+    _category: e.category ?? '',
+    _color: e.color ?? '',
   }
 }
 
@@ -73,8 +74,10 @@ const calendar = createCalendar({
   views: [viewDay, viewWeek],
   defaultView: viewDay.name,
   selectedDate: Temporal.PlainDate.from(timelineStore.selectedDate),
+  isDark: themeStore.isDark,
+  timezone: tz,
   events: [],
-  plugins: [dragAndDrop, eventResize, sessionLines],
+  plugins: [dragAndDrop, eventResize, sessionLines, currentTime],
   calendars: {
     timeline: {
       colorName: 'timeline',
@@ -83,15 +86,19 @@ const calendar = createCalendar({
     },
   },
   callbacks: {
-    onEventClick(event) {
-      const entry = timelineStore.entries.find((e) => e.id === String(event.id))
+    onEventClick(event, e) {
+      const entry = timelineStore.entries.find((en) => en.id === String(event.id))
       if (entry) {
+        const me = e as MouseEvent
+        clickPos.value = { x: me.clientX, y: me.clientY }
         editingEntry.value = entry
         clickedTime.value = undefined
         showForm.value = true
       }
     },
-    onClickDateTime(dateTime) {
+    onClickDateTime(dateTime, e) {
+      const me = e as MouseEvent
+      clickPos.value = me ? { x: me.clientX, y: me.clientY } : undefined
       editingEntry.value = null
       clickedTime.value = new Date(dateTime.epochMilliseconds).toISOString()
       showForm.value = true
@@ -124,7 +131,8 @@ const sessionApps = computed(() => {
   }
   return [...map.entries()].map(([app, i]) => {
     const color = SESSION_PALETTE[i % SESSION_PALETTE.length]
-    return { app, main: color.main, container: color.container }
+    const container = themeStore.isDark ? color.darkContainer : color.container
+    return { app, main: color.main, container }
   })
 })
 
@@ -142,6 +150,7 @@ function syncEvents() {
 
 watch(() => timelineStore.entries, syncEvents, { deep: true })
 watch(() => activityStore.sessions, syncEvents, { deep: true })
+watch(() => themeStore.isDark, (dark) => calendar.setTheme(dark ? 'dark' : 'light'))
 
 watch(
   () => timelineStore.selectedDate,
@@ -195,7 +204,8 @@ async function handleDelete(id: string) {
   }
 }
 
-function openCreate() {
+function openCreate(e: MouseEvent) {
+  clickPos.value = { x: e.clientX, y: e.clientY }
   editingEntry.value = null
   clickedTime.value = undefined
   showForm.value = true
@@ -204,11 +214,11 @@ function openCreate() {
 
 <template>
   <div style="height: 100%; display: flex; flex-direction: column">
-    <NSpace justify="end" align="center" style="margin-bottom: 12px">
+    <NSpace justify="end" align="center" style="margin-bottom: 16px">
       <NSpace v-if="showSessions && sessionApps.length" :size="8" align="center">
         <template v-for="item in sessionApps" :key="item.app">
           <NSpace :size="4" align="center">
-            <div :style="{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: item.container, borderLeft: `3px solid ${item.main}`, boxSizing: 'border-box' }" />
+            <div class="legend-dot" :style="{ backgroundColor: item.container, borderLeftColor: item.main }" />
             <NText depth="3" style="font-size: 12px">{{ item.app }}</NText>
           </NSpace>
         </template>
@@ -224,7 +234,13 @@ function openCreate() {
 
     <NSpin :show="timelineStore.loading" style="flex: 1; min-height: 0">
       <div style="height: 100%; min-height: 600px">
-        <ScheduleXCalendar :calendar-app="calendar" />
+        <ScheduleXCalendar :calendar-app="calendar">
+          <template #timeGridEvent="{ calendarEvent }">
+            <TimeGridEvent
+              :calendar-event="calendarEvent"
+            />
+          </template>
+        </ScheduleXCalendar>
       </div>
     </NSpin>
 
@@ -233,11 +249,9 @@ function openCreate() {
       :entry="editingEntry"
       :date="timelineStore.selectedDate"
       :default-start-time="clickedTime"
+      :click-pos="clickPos"
       @save="handleSave"
       @delete="handleDelete"
     />
   </div>
 </template>
-
-<style>
-</style>

@@ -1,26 +1,25 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, nextTick, onUnmounted } from 'vue'
 import {
-  NModal,
-  NCard,
-  NForm,
-  NFormItem,
   NInput,
   NTimePicker,
   NButton,
   NSpace,
   NPopconfirm,
   NColorPicker,
+  NText,
 } from 'naive-ui'
 import { set } from 'date-fns'
 import { formatISO } from 'date-fns'
 import type { TimelineEntry } from '@/types/timeline'
+import { DEFAULT_ENTRY_COLOR, CATEGORY_COLORS } from '@/constants/palette'
 
 const props = defineProps<{
   show: boolean
   entry: TimelineEntry | null
   date: string
   defaultStartTime?: string
+  clickPos?: { x: number; y: number }
 }>()
 
 const emit = defineEmits<{
@@ -30,31 +29,63 @@ const emit = defineEmits<{
 }>()
 
 const isEdit = computed(() => !!props.entry)
+const expanded = ref(false)
 
 const label = ref('')
 const startTime = ref<number | null>(null)
 const endTime = ref<number | null>(null)
 const category = ref('')
-const color = ref('#3B82F6')
+const color = ref(DEFAULT_ENTRY_COLOR)
 const description = ref('')
 
-const presetColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
+const presetColors = CATEGORY_COLORS.slice(0, 6)
+
+const panelRef = ref<HTMLElement | null>(null)
+const panelStyle = ref<Record<string, string>>({})
+
+function computePosition() {
+  const pos = props.clickPos
+  if (!pos) {
+    panelStyle.value = { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
+    return
+  }
+
+  const panelW = 380
+  const panelH = 420
+  const margin = 12
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+
+  let x = pos.x + margin
+  let y = pos.y - panelH / 3
+
+  if (x + panelW > vw - margin) x = pos.x - panelW - margin
+  if (x < margin) x = margin
+  if (y + panelH > vh - margin) y = vh - margin - panelH
+  if (y < margin) y = margin
+
+  panelStyle.value = { top: y + 'px', left: x + 'px' }
+}
 
 watch(
   () => props.show,
-  (show) => {
-    if (!show) return
+  async (show) => {
+    if (!show) {
+      expanded.value = false
+      return
+    }
     if (props.entry) {
       label.value = props.entry.label
       startTime.value = new Date(props.entry.start_time).getTime()
       endTime.value = new Date(props.entry.end_time).getTime()
       category.value = props.entry.category ?? ''
-      color.value = props.entry.color ?? '#3B82F6'
+      color.value = props.entry.color ?? DEFAULT_ENTRY_COLOR
       description.value = props.entry.description ?? ''
+      expanded.value = !!(props.entry.category || props.entry.description)
     } else {
       label.value = ''
       category.value = ''
-      color.value = '#3B82F6'
+      color.value = DEFAULT_ENTRY_COLOR
       description.value = ''
       if (props.defaultStartTime) {
         const dt = new Date(props.defaultStartTime)
@@ -66,8 +97,27 @@ watch(
         endTime.value = new Date(now.getTime() + 60 * 60 * 1000).getTime()
       }
     }
+    computePosition()
+    await nextTick()
+    panelRef.value?.querySelector<HTMLInputElement>('input')?.focus()
   },
 )
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') close()
+}
+
+watch(() => props.show, (show) => {
+  if (show) {
+    window.addEventListener('keydown', handleKeydown)
+  } else {
+    window.removeEventListener('keydown', handleKeydown)
+  }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
 
 function buildISOFromTimePicker(timeMs: number): string {
   const d = new Date(timeMs)
@@ -99,62 +149,95 @@ function close() {
 </script>
 
 <template>
-  <NModal :show="show" @update:show="close">
-    <NCard :title="isEdit ? 'Edit Entry' : 'New Entry'" style="max-width: 480px" closable @close="close">
-      <NForm @submit.prevent="handleSave">
-        <NFormItem label="Label" required>
-          <NInput v-model:value="label" placeholder="What were you doing?" />
-        </NFormItem>
-        <NSpace :size="12">
-          <NFormItem label="Start" required>
-            <NTimePicker v-model:value="startTime" format="HH:mm" style="width: 140px" />
-          </NFormItem>
-          <NFormItem label="End" required>
-            <NTimePicker v-model:value="endTime" format="HH:mm" style="width: 140px" />
-          </NFormItem>
-        </NSpace>
-        <NFormItem label="Category">
-          <NInput v-model:value="category" placeholder="e.g. coding, meetings" />
-        </NFormItem>
-        <NFormItem label="Color">
-          <NSpace :size="8" align="center">
-            <NButton
-              v-for="c in presetColors"
-              :key="c"
-              circle
-              size="small"
-              :style="{
-                backgroundColor: c,
-                border: c === color ? '2px solid white' : 'none',
-                boxShadow: c === color ? '0 0 0 2px ' + c : 'none',
-              }"
-              @click="color = c"
+  <Teleport to="body">
+    <Transition name="entry-panel">
+      <div v-if="show" class="entry-panel-overlay" @mousedown.self="close">
+        <div ref="panelRef" class="entry-panel" :style="panelStyle">
+          <form @submit.prevent="handleSave">
+            <NInput
+              v-model:value="label"
+              placeholder="What were you doing?"
+              size="large"
+              :style="{ marginBottom: '12px' }"
             />
-            <NColorPicker
-              v-model:value="color"
-              :modes="['hex']"
-              size="small"
-              style="width: 80px"
-            />
-          </NSpace>
-        </NFormItem>
-        <NFormItem label="Description">
-          <NInput v-model:value="description" type="textarea" :rows="2" placeholder="Optional notes" />
-        </NFormItem>
-        <NSpace justify="space-between" style="margin-top: 8px">
-          <NPopconfirm v-if="isEdit" @positive-click="handleDelete">
-            <template #trigger>
-              <NButton type="error" ghost>Delete</NButton>
+
+            <NSpace align="center" :size="8" style="margin-bottom: 12px">
+              <NSpace :size="4" align="center">
+                <NTimePicker v-model:value="startTime" format="HH:mm" style="width: 110px" size="small" />
+                <NText depth="3">–</NText>
+                <NTimePicker v-model:value="endTime" format="HH:mm" style="width: 110px" size="small" />
+              </NSpace>
+            </NSpace>
+
+            <NSpace :size="6" align="center" style="margin-bottom: 16px">
+              <button
+                v-for="c in presetColors"
+                :key="c"
+                type="button"
+                class="color-swatch"
+                :class="{ selected: c === color }"
+                :style="{
+                  width: '22px',
+                  height: '22px',
+                  borderRadius: '50%',
+                  backgroundColor: c,
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: c,
+                  outline: 'none',
+                }"
+                @click="color = c"
+              />
+              <NColorPicker
+                v-model:value="color"
+                :modes="['hex']"
+                size="small"
+                style="width: 70px"
+              />
+            </NSpace>
+
+            <template v-if="expanded || isEdit">
+              <NInput
+                v-model:value="category"
+                placeholder="Category (e.g. coding, meetings)"
+                size="small"
+                style="margin-bottom: 8px"
+              />
+              <NInput
+                v-model:value="description"
+                type="textarea"
+                :rows="2"
+                placeholder="Notes (optional)"
+                size="small"
+                style="margin-bottom: 12px"
+              />
             </template>
-            Delete this entry?
-          </NPopconfirm>
-          <span v-else />
-          <NSpace>
-            <NButton @click="close">Cancel</NButton>
-            <NButton type="primary" attr-type="submit" :disabled="!label">Save</NButton>
-          </NSpace>
-        </NSpace>
-      </NForm>
-    </NCard>
-  </NModal>
+
+            <NSpace justify="space-between" align="center">
+              <NSpace :size="8">
+                <NButton
+                  v-if="!expanded && !isEdit"
+                  text
+                  size="small"
+                  @click="expanded = true"
+                >
+                  More options
+                </NButton>
+                <NPopconfirm v-if="isEdit" @positive-click="handleDelete">
+                  <template #trigger>
+                    <NButton text type="error" size="small">Delete</NButton>
+                  </template>
+                  Delete this entry?
+                </NPopconfirm>
+              </NSpace>
+              <NSpace :size="8">
+                <NButton size="small" @click="close">Cancel</NButton>
+                <NButton type="primary" size="small" attr-type="submit" :disabled="!label">Save</NButton>
+              </NSpace>
+            </NSpace>
+          </form>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
