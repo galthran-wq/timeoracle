@@ -24,3 +24,23 @@ export interface ActivityStatus {
   last_event_at: string | null
   events_today: number
 }
+
+export interface ActivitySession {
+  id: string
+  user_id: string
+  app_name: string
+  window_title: string
+  window_titles: string[] | null
+  url: string | null
+  icon: string | null
+  start_time: string
+  end_time: string
+  date: string
+}
+
+export interface ActivitySessionListResponse {
+  sessions: ActivitySession[]
+  total_count: number
+  limit: number
+  offset: number
+}

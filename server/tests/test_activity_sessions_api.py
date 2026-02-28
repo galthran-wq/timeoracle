@@ -164,6 +164,43 @@ class TestListEndpoint:
         apps = [s["app_name"] for s in body["sessions"]]
         assert apps == ["Firefox", "VSCode", "Chrome"]
 
+    async def test_session_icon_field_null(self, authed_client: httpx.AsyncClient):
+        """icon field is present and null (no icon logic yet)."""
+        base = datetime(2026, 2, 23, 14, 0, tzinfo=timezone.utc)
+        events = [
+            make_event(base, app_name="Firefox", window_title="Home"),
+            make_event(base + timedelta(minutes=10), app_name="Chrome", window_title="Search"),
+        ]
+        await self._seed_events(authed_client, events)
+
+        resp = await authed_client.get(
+            "/api/activity/sessions",
+            params={"date": "2026-02-23"},
+        )
+        for session in resp.json()["sessions"]:
+            assert "icon" in session
+            assert session["icon"] is None
+
+    async def test_session_window_titles_in_response(self, authed_client: httpx.AsyncClient):
+        """window_titles contains all unique titles; window_title is first seen."""
+        base = datetime(2026, 2, 23, 14, 0, tzinfo=timezone.utc)
+        events = [
+            make_event(base, app_name="Firefox", window_title="Tab A"),
+            make_event(base + timedelta(minutes=5), app_name="Firefox", window_title="Tab B"),
+            make_event(base + timedelta(minutes=10), app_name="Firefox", window_title="Tab A"),
+            make_event(base + timedelta(minutes=15), app_name="Chrome", window_title="End"),
+        ]
+        await self._seed_events(authed_client, events)
+
+        resp = await authed_client.get(
+            "/api/activity/sessions",
+            params={"date": "2026-02-23"},
+        )
+        firefox = resp.json()["sessions"][0]
+        assert firefox["app_name"] == "Firefox"
+        assert firefox["window_title"] == "Tab A"
+        assert set(firefox["window_titles"]) == {"Tab A", "Tab B"}
+
     async def test_generate_endpoint_removed(self, authed_client: httpx.AsyncClient):
         """POST /generate endpoint no longer exists."""
         resp = await authed_client.post(

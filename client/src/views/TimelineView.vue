@@ -1,27 +1,43 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { NSpace, NButton, NSpin, useMessage } from 'naive-ui'
+import { ref, computed, onMounted, watch } from 'vue'
+import { NSpace, NButton, NSpin, NText, useMessage } from 'naive-ui'
 import { ScheduleXCalendar } from '@schedule-x/vue'
 import { createCalendar, viewDay, viewWeek } from '@schedule-x/calendar'
 import { createDragAndDropPlugin } from '@schedule-x/drag-and-drop'
 import { createResizePlugin } from '@schedule-x/resize'
 import { formatISO } from 'date-fns'
 import { useTimelineStore } from '@/stores/timeline'
+import { useActivityStore } from '@/stores/activity'
 import { ApiError } from '@/api/client'
+import { createSessionLinesPlugin } from '@/plugins/sessionLines'
 import TimelineEntryForm from '@/components/TimelineEntryForm.vue'
 import type { TimelineEntry } from '@/types/timeline'
 
 import '@schedule-x/theme-default/dist/index.css'
 
+const SESSION_PALETTE = [
+  { main: '#6366F1', container: '#E0E7FF', onContainer: '#312E81' }, // indigo
+  { main: '#14B8A6', container: '#CCFBF1', onContainer: '#134E4A' }, // teal
+  { main: '#F59E0B', container: '#FEF3C7', onContainer: '#78350F' }, // amber
+  { main: '#EC4899', container: '#FCE7F3', onContainer: '#831843' }, // pink
+  { main: '#8B5CF6', container: '#EDE9FE', onContainer: '#4C1D95' }, // violet
+  { main: '#10B981', container: '#D1FAE5', onContainer: '#064E3B' }, // emerald
+  { main: '#F97316', container: '#FFEDD5', onContainer: '#7C2D12' }, // orange
+  { main: '#06B6D4', container: '#CFFAFE', onContainer: '#155E75' }, // cyan
+]
+
 const message = useMessage()
 const timelineStore = useTimelineStore()
+const activityStore = useActivityStore()
 
 const showForm = ref(false)
 const editingEntry = ref<TimelineEntry | null>(null)
 const clickedTime = ref<string | undefined>(undefined)
+const showSessions = ref(localStorage.getItem('showSessions') !== 'false')
 
 const dragAndDrop = createDragAndDropPlugin()
 const eventResize = createResizePlugin()
+const sessionLines = createSessionLinesPlugin(SESSION_PALETTE)
 
 const tz = Temporal.Now.timeZoneId()
 
@@ -43,7 +59,14 @@ function entryToEvent(e: TimelineEntry) {
     title: e.category ? `${e.label} (${e.category})` : e.label,
     start: isoToZoned(e.start_time),
     end: isoToZoned(e.end_time),
+    calendarId: 'timeline',
   }
+}
+
+function toggleSessions() {
+  showSessions.value = !showSessions.value
+  localStorage.setItem('showSessions', String(showSessions.value))
+  syncEvents()
 }
 
 const calendar = createCalendar({
@@ -51,7 +74,14 @@ const calendar = createCalendar({
   defaultView: viewDay.name,
   selectedDate: Temporal.PlainDate.from(timelineStore.selectedDate),
   events: [],
-  plugins: [dragAndDrop, eventResize],
+  plugins: [dragAndDrop, eventResize, sessionLines],
+  calendars: {
+    timeline: {
+      colorName: 'timeline',
+      lightColors: { main: '#3B82F6', container: '#DBEAFE', onContainer: '#1E3A5F' },
+      darkColors: { main: '#60A5FA', container: '#1E3A5F', onContainer: '#DBEAFE' },
+    },
+  },
   callbacks: {
     onEventClick(event) {
       const entry = timelineStore.entries.find((e) => e.id === String(event.id))
@@ -85,19 +115,44 @@ const calendar = createCalendar({
   },
 })
 
-function syncEvents() {
-  const events = timelineStore.entries.map(entryToEvent)
-  try {
-    calendar.events.set(events)
-  } catch {
-    // events may not be initialized yet
+const sessionApps = computed(() => {
+  if (!showSessions.value) return []
+  const map = new Map<string, number>()
+  let idx = 0
+  for (const s of activityStore.sessions) {
+    if (!map.has(s.app_name)) map.set(s.app_name, idx++)
   }
+  return [...map.entries()].map(([app, i]) => {
+    const color = SESSION_PALETTE[i % SESSION_PALETTE.length]
+    return { app, main: color.main, container: color.container }
+  })
+})
+
+function syncEvents() {
+  try {
+    calendar.events.set(timelineStore.entries.map(entryToEvent))
+  } catch { }
+
+  try {
+    ;(calendar as any).sessionLines.setSessions(
+      showSessions.value ? activityStore.sessions : []
+    )
+  } catch { }
 }
 
 watch(() => timelineStore.entries, syncEvents, { deep: true })
+watch(() => activityStore.sessions, syncEvents, { deep: true })
+
+watch(
+  () => timelineStore.selectedDate,
+  (date) => activityStore.fetchSessions(date),
+)
 
 onMounted(async () => {
-  await timelineStore.fetchEntries()
+  await Promise.all([
+    timelineStore.fetchEntries(),
+    activityStore.fetchSessions(timelineStore.selectedDate),
+  ])
 })
 
 async function handleSave(data: {
@@ -149,7 +204,21 @@ function openCreate() {
 
 <template>
   <div style="height: 100%; display: flex; flex-direction: column">
-    <NSpace justify="end" style="margin-bottom: 12px">
+    <NSpace justify="end" align="center" style="margin-bottom: 12px">
+      <NSpace v-if="showSessions && sessionApps.length" :size="8" align="center">
+        <template v-for="item in sessionApps" :key="item.app">
+          <NSpace :size="4" align="center">
+            <div :style="{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: item.container, borderLeft: `3px solid ${item.main}`, boxSizing: 'border-box' }" />
+            <NText depth="3" style="font-size: 12px">{{ item.app }}</NText>
+          </NSpace>
+        </template>
+      </NSpace>
+      <NButton
+        :type="showSessions ? 'default' : 'tertiary'"
+        @click="toggleSessions"
+      >
+        {{ showSessions ? 'Hide Sessions' : 'Show Sessions' }}
+      </NButton>
       <NButton type="primary" @click="openCreate">+ New Entry</NButton>
     </NSpace>
 
@@ -169,3 +238,6 @@ function openCreate() {
     />
   </div>
 </template>
+
+<style>
+</style>
