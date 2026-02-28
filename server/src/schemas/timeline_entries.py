@@ -124,3 +124,25 @@ class TimelineEntryListResponse(BaseModel):
     total_count: int
     limit: int
     offset: int
+
+
+class TimelineEntryBulkItem(TimelineEntryCreate):
+    id: Optional[UUID] = None
+    source_summary: Optional[str] = None
+    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+
+
+class TimelineEntryBulkRequest(BaseModel):
+    entries: list[TimelineEntryBulkItem] = Field(min_length=1, max_length=100)
+
+
+class TimelineEntryBulkError(BaseModel):
+    index: int
+    message: str
+
+
+class TimelineEntryBulkResponse(BaseModel):
+    created: int
+    updated: int
+    skipped: int
+    errors: list[TimelineEntryBulkError]

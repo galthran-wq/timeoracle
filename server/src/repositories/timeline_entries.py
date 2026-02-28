@@ -8,7 +8,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.postgres.timeline_entries import TimelineEntryModel
-from src.schemas.timeline_entries import TimelineEntryCreate, TimelineEntryUpdate
+from src.schemas.timeline_entries import TimelineEntryCreate, TimelineEntryUpdate, TimelineEntryBulkItem
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,12 @@ class TimelineEntryRepositoryInterface(ABC):
 
     @abstractmethod
     async def delete(self, entry: TimelineEntryModel) -> None:
+        pass
+
+    @abstractmethod
+    async def bulk_upsert(
+        self, user_id: UUID, items: list[TimelineEntryBulkItem],
+    ) -> tuple[int, int, int, list[dict]]:
         pass
 
 
@@ -138,6 +144,66 @@ class TimelineEntryRepository(TimelineEntryRepositoryInterface):
         try:
             await self.session.delete(entry)
             await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+
+    async def bulk_upsert(
+        self, user_id: UUID, items: list[TimelineEntryBulkItem],
+    ) -> tuple[int, int, int, list[dict]]:
+        created = updated = skipped = 0
+        errors = []
+        try:
+            update_ids = [item.id for item in items if item.id is not None]
+            existing = {}
+            if update_ids:
+                result = await self.session.execute(
+                    select(TimelineEntryModel).where(
+                        TimelineEntryModel.id.in_(update_ids),
+                        TimelineEntryModel.user_id == user_id,
+                    )
+                )
+                existing = {e.id: e for e in result.scalars().all()}
+
+            for i, item in enumerate(items):
+                if item.id is None:
+                    db_entry = TimelineEntryModel(
+                        user_id=user_id,
+                        date=item.date,
+                        start_time=item.start_time,
+                        end_time=item.end_time,
+                        label=item.label,
+                        description=item.description,
+                        category=item.category,
+                        color=item.color,
+                        source="ai_generated",
+                        source_summary=item.source_summary,
+                        confidence=item.confidence,
+                    )
+                    self.session.add(db_entry)
+                    created += 1
+                else:
+                    entry = existing.get(item.id)
+                    if entry is None:
+                        errors.append({"index": i, "message": "Entry not found"})
+                        continue
+                    if entry.edited_by_user:
+                        skipped += 1
+                        continue
+                    entry.date = item.date
+                    entry.start_time = item.start_time
+                    entry.end_time = item.end_time
+                    entry.label = item.label
+                    entry.description = item.description
+                    entry.category = item.category
+                    entry.color = item.color
+                    entry.source = "ai_generated"
+                    entry.source_summary = item.source_summary
+                    entry.confidence = item.confidence
+                    updated += 1
+
+            await self.session.commit()
+            return created, updated, skipped, errors
         except Exception:
             await self.session.rollback()
             raise

@@ -11,6 +11,9 @@ from src.core.database import get_postgres_session
 from src.models.postgres.users import UserModel
 from src.repositories.timeline_entries import TimelineEntryRepository
 from src.schemas.timeline_entries import (
+    TimelineEntryBulkError,
+    TimelineEntryBulkRequest,
+    TimelineEntryBulkResponse,
     TimelineEntryCreate,
     TimelineEntryListResponse,
     TimelineEntryResponse,
@@ -44,6 +47,29 @@ async def create_entry(
         return TimelineEntryResponse.model_validate(entry)
     except Exception:
         logger.exception("Failed to create timeline entry for user %s", current_user.id)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/bulk", response_model=TimelineEntryBulkResponse)
+async def bulk_upsert_entries(
+    body: TimelineEntryBulkRequest,
+    current_user: UserModel = Depends(get_current_user),
+    repo: TimelineEntryRepository = Depends(get_timeline_repository),
+):
+    try:
+        created, updated, skipped, errors = await repo.bulk_upsert(
+            current_user.id, body.entries
+        )
+        return TimelineEntryBulkResponse(
+            created=created,
+            updated=updated,
+            skipped=skipped,
+            errors=[TimelineEntryBulkError(**e) for e in errors],
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Failed bulk upsert for user %s", current_user.id)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
