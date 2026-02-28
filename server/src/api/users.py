@@ -5,7 +5,8 @@ from src.repositories.users import UserRepository
 from src.schemas.users import (
     UserResponse, UserRegisterRequest, UserLoginRequest, TokenResponse,
     CreateUserRequest, CreateUserResponse,
-    DeleteUserRequest, DeleteUserResponse
+    DeleteUserRequest, DeleteUserResponse,
+    SessionConfig, SessionConfigUpdate,
 )
 from src.core.auth import (
     get_password_hash, verify_password, create_token_for_user, get_current_user, get_current_superuser
@@ -104,6 +105,29 @@ async def get_current_user_info(
     current_user: UserModel = Depends(get_current_user)
 ):
     return UserResponse.model_validate(current_user)
+
+
+@router.get("/me/session-config", response_model=SessionConfig)
+async def get_session_config(
+    current_user: UserModel = Depends(get_current_user),
+):
+    if current_user.session_config:
+        return SessionConfig(**current_user.session_config)
+    return SessionConfig()
+
+
+@router.patch("/me/session-config", response_model=SessionConfig)
+async def update_session_config(
+    body: SessionConfigUpdate,
+    current_user: UserModel = Depends(get_current_user),
+    user_repo: UserRepository = Depends(get_user_repository),
+):
+    updates = body.model_dump(exclude_none=True)
+    if not updates:
+        existing = current_user.session_config or {}
+        return SessionConfig(**existing)
+    user = await user_repo.update_session_config(current_user.id, updates)
+    return SessionConfig(**user.session_config)
 
 
 @router.post("/create-user", response_model=CreateUserResponse)

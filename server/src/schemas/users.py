@@ -1,7 +1,19 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from uuid import UUID
 from datetime import datetime
 from typing import Optional, Union
+
+
+class SessionConfig(BaseModel):
+    merge_gap_seconds: int = Field(default=300, ge=1, le=3600)
+    min_session_seconds: int = Field(default=5, ge=0, le=600)
+    noise_threshold_seconds: int = Field(default=120, ge=0, le=3600)
+
+
+class SessionConfigUpdate(BaseModel):
+    merge_gap_seconds: Optional[int] = Field(default=None, ge=1, le=3600)
+    min_session_seconds: Optional[int] = Field(default=None, ge=0, le=600)
+    noise_threshold_seconds: Optional[int] = Field(default=None, ge=0, le=3600)
 
 
 class UserResponse(BaseModel):
@@ -10,6 +22,7 @@ class UserResponse(BaseModel):
     is_verified: bool
     is_superuser: bool
     created_at: datetime
+    session_config: Optional[SessionConfig] = None
 
     class Config:
         from_attributes = True

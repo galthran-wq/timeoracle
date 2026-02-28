@@ -15,11 +15,11 @@ class UserRepositoryInterface(ABC):
     @abstractmethod
     async def create_user(self) -> UserModel:
         pass
-    
+
     @abstractmethod
     async def get_user(self, user_id: UUID) -> Optional[UserModel]:
         pass
-    
+
     @abstractmethod
     async def get_user_by_email(self, email: str) -> Optional[UserModel]:
         pass
@@ -27,13 +27,17 @@ class UserRepositoryInterface(ABC):
     @abstractmethod
     async def register_user(self, user_id: UUID, email: str, password_hash: str) -> UserModel:
         pass
-    
+
     @abstractmethod
     async def create_registered_user(self, email: str, password_hash: str) -> UserModel:
         pass
 
     @abstractmethod
     async def delete_user(self, user_identifier: Union[UUID, str], deleting_user_id: UUID) -> UserModel:
+        pass
+
+    @abstractmethod
+    async def update_session_config(self, user_id: UUID, config_dict: dict) -> UserModel:
         pass
 
 
@@ -115,21 +119,36 @@ class UserRepository(UserRepositoryInterface):
                     user = await self.get_user(uuid_identifier)
                 except ValueError:
                     user = await self.get_user_by_email(str(user_identifier))
-            
+
             if not user:
                 raise ValueError("User not found")
-            
+
             if user.id == deleting_user_id:
                 raise ValueError("Cannot delete your own account")
-            
+
             if user.is_superuser:
                 raise ValueError("Cannot delete another superuser account")
-            
+
             await self.session.delete(user)
             await self.session.commit()
-            
+
             return user
-            
+
+        except Exception as e:
+            await self.session.rollback()
+            raise e
+
+    async def update_session_config(self, user_id: UUID, config_dict: dict) -> UserModel:
+        try:
+            user = await self.get_user(user_id)
+            if not user:
+                raise ValueError("User not found")
+            existing = dict(user.session_config or {})
+            existing.update(config_dict)
+            user.session_config = existing
+            await self.session.commit()
+            await self.session.refresh(user)
+            return user
         except Exception as e:
             await self.session.rollback()
             raise e

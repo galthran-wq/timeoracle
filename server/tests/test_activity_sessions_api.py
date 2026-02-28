@@ -21,7 +21,6 @@ def make_event(timestamp: datetime, **overrides):
 
 class TestListEndpoint:
     async def _seed_events(self, client: httpx.AsyncClient, events: list[dict]):
-        """POST events — sessions are created inline during ingestion."""
         resp = await client.post("/api/activity/events", json={"events": events})
         assert resp.status_code == 201
 
@@ -118,8 +117,8 @@ class TestListEndpoint:
         assert "date" in session
         assert session["url"] == "https://example.com"
 
-    async def test_ingest_creates_sessions_inline(self, authed_client: httpx.AsyncClient):
-        """Sessions are created automatically during event ingestion."""
+    async def test_sessions_computed_from_ingested_events(self, authed_client: httpx.AsyncClient):
+        """Sessions are computed on-demand from stored events."""
         base = datetime(2026, 2, 23, 14, 0, tzinfo=timezone.utc)
         events = [
             make_event(base, app_name="Firefox", window_title="Home"),
@@ -129,7 +128,6 @@ class TestListEndpoint:
         assert resp.status_code == 201
         assert resp.json()["inserted_count"] == 2
 
-        # Sessions should already exist — no separate generate call needed
         resp = await authed_client.get(
             "/api/activity/sessions",
             params={"date": "2026-02-23"},
