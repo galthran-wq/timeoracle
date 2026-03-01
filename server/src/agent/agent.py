@@ -20,10 +20,7 @@ from src.repositories.timeline_entries import TimelineEntryRepository
 
 logger = logging.getLogger(__name__)
 
-agent = Agent(
-    settings.default_llm_model,
-    deps_type=AgentDeps,
-)
+agent = Agent(deps_type=AgentDeps)
 
 
 @agent.system_prompt
@@ -74,7 +71,7 @@ async def generate_timeline(
         user_id=user_id,
         target_date=target_date,
         trigger="generate",
-        llm_model=model or settings.default_llm_model,
+        llm_model=model or (user_session_config or {}).get("llm_model") or settings.default_llm_model,
     )
 
     deps = _build_deps(
@@ -86,12 +83,13 @@ async def generate_timeline(
     )
 
     prompt = f"Generate timeline entries for {target_date.isoformat()}"
-    override_model = model if model and model != settings.default_llm_model else None
+    user_model = (user_session_config or {}).get("llm_model")
+    effective_model = model or user_model or settings.default_llm_model
 
     result = await agent.run(
         prompt,
         deps=deps,
-        model=override_model,
+        model=effective_model,
     )
 
     # Save message history and token usage to chat

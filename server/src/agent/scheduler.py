@@ -24,13 +24,19 @@ async def cron_generation_loop():
                 users = await user_repo.get_all()
 
             for user in users:
+                user_cfg = user.session_config or {}
+                user_cron = user_cfg.get("enable_cron_generation")
+                if user_cron is False:
+                    continue
+                if user_cron is None and not settings.enable_cron_generation:
+                    continue
+
                 try:
                     async with AsyncSessionLocal() as session:
                         await generate_timeline(
                             user_id=user.id,
                             target_date=date.today(),
                             session=session,
-                            model=settings.default_llm_model,
                             user_session_config=user.session_config,
                         )
                     logger.info("Generated timeline for user %s", user.id)

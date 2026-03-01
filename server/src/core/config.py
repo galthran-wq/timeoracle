@@ -34,9 +34,12 @@ class Settings(BaseSettings):
 
     openai_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None
-    default_llm_model: str = "openai:gpt-4o-mini"
-    chat_llm_model: str = "openai:gpt-4o-mini"
+    moonshotai_api_key: Optional[str] = None
+    default_llm_model: str = "moonshotai:kimi-k2.5"
+    chat_llm_model: str = "moonshotai:kimi-k2.5"
     enable_cron_generation: bool = False
+    enable_logfire: bool = False
+    logfire_token: Optional[str] = None
     
     @property
     def postgres_url(self) -> str:

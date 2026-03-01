@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.enable_logfire:
+        import logfire
+        logfire.configure()
+        logfire.instrument_pydantic_ai()
+        logger.info("Logfire instrumentation enabled")
+
     cron_task = None
     if settings.enable_cron_generation:
         from src.agent.scheduler import cron_generation_loop

@@ -53,13 +53,16 @@ async def chat_stream(
     chat_repo = ChatRepository(session)
 
     # Find or create chat session for this user+date
+    user_cfg = current_user.session_config or {}
+    effective_model = user_cfg.get("llm_model") or settings.chat_llm_model
+
     chat = await chat_repo.get_active_chat(current_user.id, target_date)
     if not chat:
         chat = await chat_repo.create(
             user_id=current_user.id,
             target_date=target_date,
             trigger="chat",
-            llm_model=settings.chat_llm_model,
+            llm_model=effective_model,
         )
 
     # Load message history
@@ -90,11 +93,10 @@ async def chat_stream(
     async def run_agent():
         """Run agent in background task, pushing events to the queue."""
         try:
-            override_model = settings.chat_llm_model if settings.chat_llm_model != settings.default_llm_model else None
             async with agent.run_stream(
                 body.message,
                 deps=deps,
-                model=override_model,
+                model=effective_model,
                 message_history=message_history,
             ) as result:
                 async for text in result.stream_text(delta=True):
