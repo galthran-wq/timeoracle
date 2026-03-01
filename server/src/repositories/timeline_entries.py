@@ -203,6 +203,7 @@ class TimelineEntryRepository(TimelineEntryRepositoryInterface):
                     entry.source = "ai_generated"
                     entry.source_summary = item.source_summary
                     entry.confidence = item.confidence
+                    entry.chat_id = chat_id
                     updated += 1
 
             await self.session.commit()
