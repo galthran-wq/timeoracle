@@ -5,7 +5,7 @@ pub fn make_test_event() -> ActivityEvent {
         app_name: "TestApp".into(),
         window_title: "Test Window".into(),
         url: None,
-    })
+    }, None)
 }
 
 pub fn make_test_token() -> String {

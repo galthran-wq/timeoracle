@@ -115,7 +115,7 @@ mod tests {
             app_name: "Firefox".into(),
             window_title: "Test".into(),
             url: None,
-        })
+        }, None)
     }
 
     #[test]

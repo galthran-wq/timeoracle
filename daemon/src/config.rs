@@ -30,6 +30,9 @@ pub struct Config {
 
     #[serde(default = "default_log_level")]
     pub log_level: String,
+
+    #[serde(default = "default_audio_capture")]
+    pub audio_capture: bool,
 }
 
 fn default_server_url() -> String {
@@ -53,6 +56,9 @@ fn default_flush_batch_size() -> usize {
 fn default_log_level() -> String {
     "info".into()
 }
+fn default_audio_capture() -> bool {
+    true
+}
 
 impl Default for Config {
     fn default() -> Self {
@@ -66,6 +72,7 @@ impl Default for Config {
             flush_batch_size: default_flush_batch_size(),
             ignore_apps: Vec::new(),
             log_level: default_log_level(),
+            audio_capture: default_audio_capture(),
         }
     }
 }
@@ -151,6 +158,7 @@ mod tests {
         assert!(config.ignore_apps.is_empty());
         assert_eq!(config.log_level, "info");
         assert!(config.auth_token.is_none());
+        assert!(config.audio_capture);
     }
 
     #[test]
@@ -165,6 +173,7 @@ mod tests {
             flush_batch_size: 50,
             ignore_apps: vec!["slack".into(), "discord".into()],
             log_level: "debug".into(),
+            audio_capture: true,
         };
         let toml_str = toml::to_string_pretty(&config).unwrap();
         let parsed: Config = toml::from_str(&toml_str).unwrap();
