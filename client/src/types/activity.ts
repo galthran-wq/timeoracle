@@ -33,6 +33,7 @@ export interface ActivitySession {
   window_titles: string[] | null
   url: string | null
   icon: string | null
+  brand_color: string | null
   start_time: string
   end_time: string
   date: string

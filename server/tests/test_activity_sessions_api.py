@@ -162,12 +162,12 @@ class TestListEndpoint:
         apps = [s["app_name"] for s in body["sessions"]]
         assert apps == ["Firefox", "VSCode", "Chrome"]
 
-    async def test_session_icon_field_null(self, authed_client: httpx.AsyncClient):
-        """icon field is present and null (no icon logic yet)."""
+    async def test_session_icon_and_brand_color_resolved(self, authed_client: httpx.AsyncClient):
+        """icon and brand_color resolved for known apps, null for unknown."""
         base = datetime(2026, 2, 23, 14, 0, tzinfo=timezone.utc)
         events = [
             make_event(base, app_name="Firefox", window_title="Home"),
-            make_event(base + timedelta(minutes=10), app_name="Chrome", window_title="Search"),
+            make_event(base + timedelta(minutes=10), app_name="xterm", window_title="Shell"),
         ]
         await self._seed_events(authed_client, events)
 
@@ -175,9 +175,14 @@ class TestListEndpoint:
             "/api/activity/sessions",
             params={"date": "2026-02-23"},
         )
-        for session in resp.json()["sessions"]:
-            assert "icon" in session
-            assert session["icon"] is None
+        sessions = resp.json()["sessions"]
+        firefox_session = next(s for s in sessions if s["app_name"] == "Firefox")
+        xterm_session = next(s for s in sessions if s["app_name"] == "xterm")
+        assert firefox_session["icon"] is not None
+        assert "simpleicons.org" in firefox_session["icon"]
+        assert firefox_session["brand_color"] == "#FF7139"
+        assert xterm_session["icon"] is None
+        assert xterm_session["brand_color"] is None
 
     async def test_session_window_titles_in_response(self, authed_client: httpx.AsyncClient):
         """window_titles contains all unique titles; window_title is first seen."""

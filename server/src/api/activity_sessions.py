@@ -13,6 +13,7 @@ from src.schemas.activity_sessions import (
     ActivitySessionResponse,
 )
 from src.services.activity_session_generator import compute_sessions
+from src.services.icon_resolver import resolve_session_icon
 
 router = APIRouter(prefix="/api/activity/sessions", tags=["activity-sessions"])
 
@@ -64,25 +65,28 @@ async def list_sessions(
     total_count = len(sessions)
     page = sessions[offset:offset + limit]
 
+    result = []
+    for s in page:
+        icon_url, brand_color = resolve_session_icon(s["app_name"], s.get("url"))
+        result.append(ActivitySessionResponse(
+            id=uuid5(
+                _SESSION_ID_NAMESPACE,
+                f"{current_user.id}:{s['start_time'].isoformat()}:{s['app_name']}",
+            ),
+            user_id=current_user.id,
+            app_name=s["app_name"],
+            window_title=s["window_title"],
+            window_titles=s.get("window_titles"),
+            url=s.get("url"),
+            icon=icon_url,
+            brand_color=brand_color,
+            start_time=s["start_time"],
+            end_time=s["end_time"],
+            date=s["date"],
+        ))
+
     return ActivitySessionListResponse(
-        sessions=[
-            ActivitySessionResponse(
-                id=uuid5(
-                    _SESSION_ID_NAMESPACE,
-                    f"{current_user.id}:{s['start_time'].isoformat()}:{s['app_name']}",
-                ),
-                user_id=current_user.id,
-                app_name=s["app_name"],
-                window_title=s["window_title"],
-                window_titles=s.get("window_titles"),
-                url=s.get("url"),
-                icon=None,
-                start_time=s["start_time"],
-                end_time=s["end_time"],
-                date=s["date"],
-            )
-            for s in page
-        ],
+        sessions=result,
         total_count=total_count,
         limit=limit,
         offset=offset,

@@ -1,5 +1,5 @@
 import type { ActivitySession } from '@/types/activity'
-import type { SessionColor } from '@/constants/palette'
+import { sessionColorFromHex, type SessionColor } from '@/constants/palette'
 
 interface DayBoundaries {
   start: number
@@ -222,8 +222,9 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
     container.style.cssText = `position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:3;overflow:hidden;`
 
     for (const { session, lane } of assignments) {
-      const colorIdx = appColorMap.get(session.app_name)!
-      const color = palette[colorIdx % palette.length]
+      const color = session.brand_color
+        ? sessionColorFromHex(session.brand_color)
+        : palette[appColorMap.get(session.app_name)! % palette.length]
 
       const [startH, startM] = isoToHM(session.start_time)
       const [endH, endM] = isoToHM(session.end_time)
@@ -255,28 +256,38 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
         'cursor:default',
       ].join(';') + ';'
 
+      const appendInitial = (parent: HTMLElement) => {
+        if (sessionDurationMinutes(session) >= MIN_HEIGHT_FOR_INITIAL) {
+          const textColor = dark ? color.darkOnContainer : color.onContainer
+          const initial = document.createElement('div')
+          initial.textContent = session.app_name.charAt(0).toUpperCase()
+          initial.style.cssText = [
+            'text-align:center',
+            'margin-top:4px',
+            'font-size:14px',
+            'font-weight:600',
+            'line-height:1',
+            `color:${textColor}`,
+            'pointer-events:none',
+            'user-select:none',
+          ].join(';') + ';'
+          parent.appendChild(initial)
+        }
+      }
+
       if (session.icon) {
         const img = document.createElement('img')
         img.src = session.icon
         img.width = 16
         img.height = 16
         img.style.cssText = 'display:block;margin:4px auto 0;pointer-events:none;'
+        img.onerror = () => {
+          img.remove()
+          appendInitial(strip)
+        }
         strip.appendChild(img)
-      } else if (sessionDurationMinutes(session) >= MIN_HEIGHT_FOR_INITIAL) {
-        const textColor = dark ? color.darkOnContainer : color.onContainer
-        const initial = document.createElement('div')
-        initial.textContent = session.app_name.charAt(0).toUpperCase()
-        initial.style.cssText = [
-          'text-align:center',
-          'margin-top:4px',
-          'font-size:14px',
-          'font-weight:600',
-          'line-height:1',
-          `color:${textColor}`,
-          'pointer-events:none',
-          'user-select:none',
-        ].join(';') + ';'
-        strip.appendChild(initial)
+      } else {
+        appendInitial(strip)
       }
 
       container.appendChild(strip)

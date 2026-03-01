@@ -15,6 +15,7 @@ class ActivitySessionResponse(BaseModel):
     window_titles: Optional[list[str]] = None
     url: Optional[str] = None
     icon: Optional[str] = None
+    brand_color: Optional[str] = None
     start_time: dt.datetime
     end_time: dt.datetime
     date: dt.date
