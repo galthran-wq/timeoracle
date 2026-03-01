@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { NSpace, NButton, NSpin, NText, useMessage } from 'naive-ui'
+import { NSpace, NButton, NSpin, NText, NIcon, useMessage } from 'naive-ui'
+import { ChatbubbleEllipsesOutline } from '@vicons/ionicons5'
 import { ScheduleXCalendar } from '@schedule-x/vue'
 import { createCalendar, viewDay, viewWeek } from '@schedule-x/calendar'
 import { createDragAndDropPlugin } from '@schedule-x/drag-and-drop'
@@ -11,7 +12,9 @@ import { useTimelineStore } from '@/stores/timeline'
 import { useActivityStore } from '@/stores/activity'
 import { useThemeStore } from '@/stores/theme'
 import { ApiError } from '@/api/client'
+import { useChatStore } from '@/stores/chat'
 import { createSessionLinesPlugin } from '@/plugins/sessionLines'
+import ChatPanel from '@/components/ChatPanel.vue'
 import TimelineEntryForm from '@/components/TimelineEntryForm.vue'
 import TimeGridEvent from '@/components/TimeGridEvent.vue'
 import type { TimelineEntry } from '@/types/timeline'
@@ -24,12 +27,19 @@ const message = useMessage()
 const timelineStore = useTimelineStore()
 const activityStore = useActivityStore()
 const themeStore = useThemeStore()
+const chatStore = useChatStore()
 
 const showForm = ref(false)
 const editingEntry = ref<TimelineEntry | null>(null)
 const clickedTime = ref<string | undefined>(undefined)
 const clickPos = ref<{ x: number; y: number } | undefined>(undefined)
 const showSessions = ref(localStorage.getItem('showSessions') !== 'false')
+const showChat = ref(localStorage.getItem('showChat') === 'true')
+
+function toggleChat() {
+  showChat.value = !showChat.value
+  localStorage.setItem('showChat', String(showChat.value))
+}
 
 const dragAndDrop = createDragAndDropPlugin()
 const eventResize = createResizePlugin()
@@ -164,6 +174,8 @@ watch(
   ([date, range]) => activityStore.fetchSessions(date, range),
 )
 
+watch(() => timelineStore.selectedDate, () => chatStore.clearMessages())
+
 onMounted(async () => {
   await Promise.all([
     timelineStore.fetchEntries(),
@@ -220,7 +232,8 @@ function openCreate(e: MouseEvent) {
 </script>
 
 <template>
-  <div style="height: 100%; display: flex; flex-direction: column">
+  <div style="height: 100%; display: flex">
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
     <NSpace justify="end" align="center" style="margin-bottom: 16px">
       <NSpace v-if="showSessions && sessionApps.length" :size="8" align="center">
         <template v-for="item in sessionApps" :key="item.app">
@@ -237,6 +250,12 @@ function openCreate(e: MouseEvent) {
         {{ showSessions ? 'Hide Sessions' : 'Show Sessions' }}
       </NButton>
       <NButton type="primary" @click="openCreate">+ New Entry</NButton>
+      <NButton :type="showChat ? 'primary' : 'default'" @click="toggleChat">
+        <template #icon>
+          <NIcon><ChatbubbleEllipsesOutline /></NIcon>
+        </template>
+        Agent
+      </NButton>
     </NSpace>
 
     <NSpin :show="timelineStore.loading" style="flex: 1; min-height: 0">
@@ -260,5 +279,8 @@ function openCreate(e: MouseEvent) {
       @save="handleSave"
       @delete="handleDelete"
     />
+    </div>
+
+    <ChatPanel v-if="showChat" />
   </div>
 </template>
