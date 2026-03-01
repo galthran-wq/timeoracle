@@ -47,6 +47,7 @@ class TimelineEntryRepositoryInterface(ABC):
     @abstractmethod
     async def bulk_upsert(
         self, user_id: UUID, items: list[TimelineEntryBulkItem],
+        chat_id: UUID | None = None,
     ) -> tuple[int, int, int, list[dict]]:
         pass
 
@@ -150,6 +151,7 @@ class TimelineEntryRepository(TimelineEntryRepositoryInterface):
 
     async def bulk_upsert(
         self, user_id: UUID, items: list[TimelineEntryBulkItem],
+        chat_id: UUID | None = None,
     ) -> tuple[int, int, int, list[dict]]:
         created = updated = skipped = 0
         errors = []
@@ -179,6 +181,7 @@ class TimelineEntryRepository(TimelineEntryRepositoryInterface):
                         source="ai_generated",
                         source_summary=item.source_summary,
                         confidence=item.confidence,
+                        chat_id=chat_id,
                     )
                     self.session.add(db_entry)
                     created += 1
@@ -200,6 +203,7 @@ class TimelineEntryRepository(TimelineEntryRepositoryInterface):
                     entry.source = "ai_generated"
                     entry.source_summary = item.source_summary
                     entry.confidence = item.confidence
+                    entry.chat_id = chat_id
                     updated += 1
 
             await self.session.commit()

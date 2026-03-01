@@ -37,6 +37,10 @@ class UserRepositoryInterface(ABC):
         pass
 
     @abstractmethod
+    async def get_all(self) -> list[UserModel]:
+        pass
+
+    @abstractmethod
     async def update_session_config(self, user_id: UUID, config_dict: dict) -> UserModel:
         pass
 
@@ -44,7 +48,11 @@ class UserRepositoryInterface(ABC):
 class UserRepository(UserRepositoryInterface):
     def __init__(self, session: AsyncSession):
         self.session = session
-    
+
+    async def get_all(self) -> list[UserModel]:
+        result = await self.session.execute(select(UserModel))
+        return list(result.scalars().all())
+
     async def create_user(self) -> UserModel:
         db_user = UserModel()
         self.session.add(db_user)

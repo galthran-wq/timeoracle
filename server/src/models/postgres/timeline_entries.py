@@ -26,6 +26,11 @@ class TimelineEntryModel(Base):
     source = Column(String(20), server_default="manual", nullable=False)
     source_summary = Column(Text, nullable=True)
     confidence = Column(Float, nullable=True)
+    chat_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("chats.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     edited_by_user = Column(Boolean, server_default="false", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

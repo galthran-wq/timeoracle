@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     secret_key: str = "your-secret-key-change-this-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 24 * 60
+
+    openai_api_key: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
+    moonshotai_api_key: Optional[str] = None
+    default_llm_model: str = "moonshotai:kimi-k2.5"
+    chat_llm_model: str = "moonshotai:kimi-k2.5"
+    enable_cron_generation: bool = False
+    enable_logfire: bool = False
+    logfire_token: Optional[str] = None
     
     @property
     def postgres_url(self) -> str:
