@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=TimeOracle
+Name=digitalgulag
 Comment=Activity tracking daemon
-Exec=timeoracle-daemon run
-Icon=timeoracle-daemon
+Exec=digitalgulag-daemon run
+Icon=digitalgulag-daemon
 Terminal=false
 Categories=Utility;
 StartupNotify=false

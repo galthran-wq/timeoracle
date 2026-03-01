@@ -51,7 +51,7 @@ class TestBulkCreate:
 
     async def test_source_summary_and_confidence(self, authed_client: httpx.AsyncClient):
         entry = make_entry(
-            source_summary="User was coding in VS Code on timeoracle project",
+            source_summary="User was coding in VS Code on digitalgulag project",
             confidence=0.85,
         )
         resp = await authed_client.post(
@@ -62,7 +62,7 @@ class TestBulkCreate:
         today = date.today().isoformat()
         list_resp = await authed_client.get("/api/timeline", params={"date": today})
         created = list_resp.json()["entries"][0]
-        assert created["source_summary"] == "User was coding in VS Code on timeoracle project"
+        assert created["source_summary"] == "User was coding in VS Code on digitalgulag project"
         assert created["confidence"] == pytest.approx(0.85)
 
     async def test_max_100_items(self, authed_client: httpx.AsyncClient):

@@ -13,7 +13,7 @@ def make_event(**overrides):
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "event_type": "active_window",
         "app_name": "VS Code",
-        "window_title": "main.py - timeoracle",
+        "window_title": "main.py - digitalgulag",
     }
     defaults.update(overrides)
     return defaults
@@ -80,7 +80,7 @@ class TestIngestEvents:
 
     async def test_event_with_url_and_metadata(self, authed_client: httpx.AsyncClient):
         event = make_event(
-            url="https://github.com/timeoracle",
+            url="https://github.com/digitalgulag",
             metadata={"tab_count": 5, "incognito": False},
         )
         resp = await authed_client.post(

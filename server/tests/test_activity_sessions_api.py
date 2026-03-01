@@ -13,7 +13,7 @@ def make_event(timestamp: datetime, **overrides):
         "timestamp": timestamp.isoformat(),
         "event_type": "active_window",
         "app_name": "VS Code",
-        "window_title": "main.py - timeoracle",
+        "window_title": "main.py - digitalgulag",
     }
     defaults.update(overrides)
     return defaults

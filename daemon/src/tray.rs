@@ -74,7 +74,7 @@ fn build_tray() -> anyhow::Result<(
     let icon = create_fallback_icon();
     let tray = TrayIconBuilder::new()
         .with_menu(Box::new(menu))
-        .with_tooltip("TimeOracle")
+        .with_tooltip("digitalgulag")
         .with_icon(icon)
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to create tray icon: {e}"))?;
@@ -222,7 +222,7 @@ mod macos_login {
             )
         };
         unsafe { window.setReleasedWhenClosed(false) };
-        window.setTitle(&NSString::from_str("TimeOracle — Login"));
+        window.setTitle(&NSString::from_str("digitalgulag — Login"));
         window.center();
 
         let content_view = unsafe { window.contentView() }.unwrap();
@@ -453,7 +453,7 @@ mod macos_stats {
                 )
             };
             unsafe { window.setReleasedWhenClosed(false) };
-            window.setTitle(&NSString::from_str("TimeOracle"));
+            window.setTitle(&NSString::from_str("digitalgulag"));
             window.center();
 
             let content_view = window.contentView().unwrap();
@@ -562,7 +562,7 @@ mod linux_login {
 
     pub fn show_login_and_wait(config: &Config) -> anyhow::Result<Config> {
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
-        window.set_title("TimeOracle — Login");
+        window.set_title("digitalgulag — Login");
         window.set_default_size(350, 220);
         window.set_resizable(false);
         window.set_position(gtk::WindowPosition::Center);
@@ -724,7 +724,7 @@ mod linux_stats {
     impl StatsWindow {
         pub fn init(&mut self) {
             let window = gtk::Window::new(gtk::WindowType::Toplevel);
-            window.set_title("TimeOracle");
+            window.set_title("digitalgulag");
             window.set_default_size(300, 150);
             window.set_resizable(false);
 

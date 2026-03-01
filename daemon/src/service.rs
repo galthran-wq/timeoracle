@@ -39,7 +39,7 @@ fn systemd_unit_path() -> Result<PathBuf> {
         .join(".config")
         .join("systemd")
         .join("user")
-        .join("timeoracle-daemon.service"))
+        .join("digitalgulag-daemon.service"))
 }
 
 #[cfg(target_os = "linux")]
@@ -53,7 +53,7 @@ fn install_systemd() -> Result<()> {
 
     let unit = format!(
         r#"[Unit]
-Description=TimeOracle Activity Tracking Daemon
+Description=digitalgulag Activity Tracking Daemon
 After=graphical-session.target
 
 [Service]
@@ -71,7 +71,7 @@ WantedBy=default.target
 
     std::fs::write(&unit_path, unit)?;
     println!("Installed systemd unit: {}", unit_path.display());
-    println!("Enable with: systemctl --user enable --now timeoracle-daemon");
+    println!("Enable with: systemctl --user enable --now digitalgulag-daemon");
     Ok(())
 }
 
@@ -101,30 +101,30 @@ fn install_desktop_entry() -> Result<()> {
     let desktop_entry = format!(
         "[Desktop Entry]\n\
          Type=Application\n\
-         Name=TimeOracle\n\
+         Name=digitalgulag\n\
          Comment=Activity tracking daemon\n\
          Exec={exe} run\n\
-         Icon=timeoracle-daemon\n\
+         Icon=digitalgulag-daemon\n\
          Terminal=false\n\
          Categories=Utility;\n\
          StartupNotify=false\n",
         exe = exe.display()
     );
-    let desktop_path = desktop_dir.join("timeoracle-daemon.desktop");
+    let desktop_path = desktop_dir.join("digitalgulag-daemon.desktop");
     std::fs::write(&desktop_path, desktop_entry)?;
     println!("Installed desktop entry: {}", desktop_path.display());
 
     let icon_src = exe
         .parent()
         .and_then(|p| {
-            let candidate = p.join("../share/icons/hicolor/128x128/apps/timeoracle-daemon.png");
+            let candidate = p.join("../share/icons/hicolor/128x128/apps/digitalgulag-daemon.png");
             if candidate.exists() { Some(candidate) } else { None }
         });
 
     if let Some(src) = icon_src {
         let icon_dir = data_dir.join("icons/hicolor/128x128/apps");
         std::fs::create_dir_all(&icon_dir)?;
-        let icon_dest = icon_dir.join("timeoracle-daemon.png");
+        let icon_dest = icon_dir.join("digitalgulag-daemon.png");
         std::fs::copy(&src, &icon_dest)?;
         println!("Installed icon: {}", icon_dest.display());
     }
@@ -138,13 +138,13 @@ fn uninstall_desktop_entry() -> Result<()> {
         .map_err(|_| DaemonError::Config("HOME not set".into()))?;
     let data_dir = PathBuf::from(&home).join(".local").join("share");
 
-    let desktop_path = data_dir.join("applications/timeoracle-daemon.desktop");
+    let desktop_path = data_dir.join("applications/digitalgulag-daemon.desktop");
     if desktop_path.exists() {
         std::fs::remove_file(&desktop_path)?;
         println!("Removed desktop entry: {}", desktop_path.display());
     }
 
-    let icon_path = data_dir.join("icons/hicolor/128x128/apps/timeoracle-daemon.png");
+    let icon_path = data_dir.join("icons/hicolor/128x128/apps/digitalgulag-daemon.png");
     if icon_path.exists() {
         std::fs::remove_file(&icon_path)?;
         println!("Removed icon: {}", icon_path.display());
@@ -160,7 +160,7 @@ fn launchd_plist_path() -> Result<PathBuf> {
     Ok(PathBuf::from(home)
         .join("Library")
         .join("LaunchAgents")
-        .join("com.timeoracle.daemon.plist"))
+        .join("com.digitalgulag.daemon.plist"))
 }
 
 #[cfg(target_os = "macos")]
@@ -174,7 +174,7 @@ fn install_launchd() -> Result<()> {
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.timeoracle.daemon</string>
+    <string>com.digitalgulag.daemon</string>
     <key>ProgramArguments</key>
     <array>
         <string>{exe}</string>
@@ -186,9 +186,9 @@ fn install_launchd() -> Result<()> {
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/tmp/timeoracle-daemon.log</string>
+    <string>/tmp/digitalgulag-daemon.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/timeoracle-daemon.err</string>
+    <string>/tmp/digitalgulag-daemon.err</string>
 </dict>
 </plist>"#,
         exe = exe.display()

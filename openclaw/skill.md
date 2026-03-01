@@ -1,16 +1,16 @@
 ---
-name: timeoracle
-description: Scan TimeOracle activity sessions and create/update labeled timeline entries
+name: digitalgulag
+description: Scan digitalgulag activity sessions and create/update labeled timeline entries
 requires:
   env:
-    - TIMEORACLE_API_URL
-    - TIMEORACLE_TOKEN
+    - DIGITALGULAG_API_URL
+    - DIGITALGULAG_TOKEN
   bins:
     - curl
     - jq
 ---
 
-# TimeOracle Timeline Labeling
+# digitalgulag Timeline Labeling
 
 You analyze computer activity sessions from a personal time tracker and produce
 labeled timeline entries. Each entry represents a meaningful block of time with
@@ -20,17 +20,17 @@ a human-readable label, category, and color.
 
 All API requests require:
 ```
-Authorization: Bearer $TIMEORACLE_TOKEN
+Authorization: Bearer $DIGITALGULAG_TOKEN
 ```
-Base URL: `$TIMEORACLE_API_URL`
+Base URL: `$DIGITALGULAG_API_URL`
 
 ## Workflow
 
 ### Step 1: Fetch today's activity sessions
 
 ```bash
-curl -s "$TIMEORACLE_API_URL/api/activity/sessions?date=$(date +%Y-%m-%d)&range=day&limit=1000" \
-  -H "Authorization: Bearer $TIMEORACLE_TOKEN" | jq .
+curl -s "$DIGITALGULAG_API_URL/api/activity/sessions?date=$(date +%Y-%m-%d)&range=day&limit=1000" \
+  -H "Authorization: Bearer $DIGITALGULAG_TOKEN" | jq .
 ```
 
 Each session has: `app_name`, `window_title`, `window_titles[]`, `url`, `start_time`, `end_time`.
@@ -40,8 +40,8 @@ Focus on sessions from the last 2 hours (to cover any late-arriving data from th
 ### Step 2: Fetch existing timeline entries
 
 ```bash
-curl -s "$TIMEORACLE_API_URL/api/timeline?date=$(date +%Y-%m-%d)&range=day&limit=500" \
-  -H "Authorization: Bearer $TIMEORACLE_TOKEN" | jq .
+curl -s "$DIGITALGULAG_API_URL/api/timeline?date=$(date +%Y-%m-%d)&range=day&limit=500" \
+  -H "Authorization: Bearer $DIGITALGULAG_TOKEN" | jq .
 ```
 
 Important:
@@ -55,7 +55,7 @@ For each activity session or cluster of related sessions:
 
 1. **Group** sessions by similarity (same app, similar window titles, same URL domain) and time proximity (gaps < 5 minutes).
 2. **Label** each group with a concise, human-readable description of the activity.
-   - Good: "Code review on TimeOracle PR #42", "Reading HN thread on AI agents"
+   - Good: "Code review on digitalgulag PR #42", "Reading HN thread on AI agents"
    - Bad: "VS Code", "Firefox usage", "Computer activity"
 3. **Categorize** using one of: Work, Communication, Research, Entertainment, Health, Personal, Admin.
 4. **Color** based on category (see mapping below).
@@ -67,8 +67,8 @@ If an existing AI-generated entry covers the same time window, include its `id` 
 ### Step 4: Submit
 
 ```bash
-curl -s -X POST "$TIMEORACLE_API_URL/api/timeline/bulk" \
-  -H "Authorization: Bearer $TIMEORACLE_TOKEN" \
+curl -s -X POST "$DIGITALGULAG_API_URL/api/timeline/bulk" \
+  -H "Authorization: Bearer $DIGITALGULAG_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "entries": [
@@ -76,11 +76,11 @@ curl -s -X POST "$TIMEORACLE_API_URL/api/timeline/bulk" \
         "date": "2026-01-15",
         "start_time": "2026-01-15T10:00:00+00:00",
         "end_time": "2026-01-15T11:30:00+00:00",
-        "label": "Coding: TimeOracle daemon refactor",
+        "label": "Coding: digitalgulag daemon refactor",
         "description": "Refactoring capture module in Rust daemon",
         "category": "Work",
         "color": "#3B82F6",
-        "source_summary": "VS Code with timeoracle project, editing daemon/src/capture/*.rs files",
+        "source_summary": "VS Code with digitalgulag project, editing daemon/src/capture/*.rs files",
         "confidence": 0.92
       }
     ]

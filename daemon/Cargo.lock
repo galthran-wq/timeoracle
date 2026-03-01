@@ -488,6 +488,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "digitalgulag-daemon"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "clap",
+ "gtk",
+ "mockall",
+ "mpris",
+ "muda",
+ "objc2 0.6.3",
+ "objc2-app-kit 0.3.2",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-foundation 0.3.2",
+ "pulsectl-rs",
+ "reqwest",
+ "rpassword",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-test",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "tray-icon",
+ "user-idle",
+ "uuid",
+ "x11rb",
+]
+
+[[package]]
 name = "dirs"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2760,42 +2796,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f60246a4944f24f6e018aa17cdeffb7818b76356965d03b07d6a9886e8962185"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "timeoracle-daemon"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "chrono",
- "clap",
- "gtk",
- "mockall",
- "mpris",
- "muda",
- "objc2 0.6.3",
- "objc2-app-kit 0.3.2",
- "objc2-core-foundation",
- "objc2-core-graphics",
- "objc2-foundation 0.3.2",
- "pulsectl-rs",
- "reqwest",
- "rpassword",
- "rusqlite",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tokio-test",
- "toml",
- "tracing",
- "tracing-subscriber",
- "tray-icon",
- "user-idle",
- "uuid",
- "x11rb",
 ]
 
 [[package]]

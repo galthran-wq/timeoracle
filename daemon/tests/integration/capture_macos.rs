@@ -1,7 +1,7 @@
 #[cfg(target_os = "macos")]
 mod macos_tests {
-    use timeoracle_daemon::capture::macos::MacOSSource;
-    use timeoracle_daemon::capture::ActivitySource;
+    use digitalgulag_daemon::capture::macos::MacOSSource;
+    use digitalgulag_daemon::capture::ActivitySource;
 
     #[test]
     fn test_macos_source_creation() {

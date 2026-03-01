@@ -1,15 +1,15 @@
 [package]
-name = "timeoracle-daemon"
+name = "digitalgulag-daemon"
 version = "0.1.0"
 edition = "2021"
-description = "TimeOracle activity tracking daemon"
+description = "digitalgulag activity tracking daemon"
 
 [lib]
-name = "timeoracle_daemon"
+name = "digitalgulag_daemon"
 path = "src/lib.rs"
 
 [[bin]]
-name = "timeoracle-daemon"
+name = "digitalgulag-daemon"
 path = "src/main.rs"
 
 [dependencies]
@@ -60,13 +60,13 @@ default = ["audio"]
 audio = ["mpris", "pulsectl-rs"]
 
 [package.metadata.deb]
-maintainer = "TimeOracle"
+maintainer = "digitalgulag"
 section = "utils"
 priority = "optional"
 depends = "libgtk-3-0, libxss1, libxdo3, libpulse0"
 assets = [
-    ["target/release/timeoracle-daemon", "usr/bin/", "755"],
-    ["pkg/timeoracle-daemon.service", "usr/lib/systemd/user/", "644"],
-    ["pkg/timeoracle-daemon.desktop", "usr/share/applications/", "644"],
-    ["assets/icon.png", "usr/share/icons/hicolor/128x128/apps/timeoracle-daemon.png", "644"],
+    ["target/release/digitalgulag-daemon", "usr/bin/", "755"],
+    ["pkg/digitalgulag-daemon.service", "usr/lib/systemd/user/", "644"],
+    ["pkg/digitalgulag-daemon.desktop", "usr/share/applications/", "644"],
+    ["assets/icon.png", "usr/share/icons/hicolor/128x128/apps/digitalgulag-daemon.png", "644"],
 ]

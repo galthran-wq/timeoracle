@@ -34,7 +34,7 @@ async function handleSubmit() {
 <template>
   <div class="login-page">
     <div style="text-align: center; margin-bottom: 32px">
-      <div class="login-brand">TimeOracle</div>
+      <div class="login-brand">digitalgulag</div>
       <NText depth="3" style="font-size: 14px">AI-powered time tracking</NText>
     </div>
     <NCard class="login-card">

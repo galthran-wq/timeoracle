@@ -73,7 +73,7 @@ impl MacOSSource {
 
         if found_window && !SCREEN_RECORDING_WARNED.swap(true, Ordering::Relaxed) {
             tracing::warn!(
-                "Window titles unavailable — grant Screen Recording permission to TimeOracle \
+                "Window titles unavailable — grant Screen Recording permission to digitalgulag \
                  in System Settings > Privacy & Security > Screen Recording"
             );
         }

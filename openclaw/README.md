@@ -1,14 +1,14 @@
 # OpenClaw Integration
 
-Connect TimeOracle to [OpenClaw](https://github.com/openclaw/openclaw) for automatic activity labeling. OpenClaw scans your activity sessions every hour and creates labeled timeline entries.
+Connect digitalgulag to [OpenClaw](https://github.com/openclaw/openclaw) for automatic activity labeling. OpenClaw scans your activity sessions every hour and creates labeled timeline entries.
 
 ## Setup
 
 ### 1. Install the skill
 
 ```bash
-mkdir -p ~/.openclaw/skills/timeoracle
-cp skill.md ~/.openclaw/skills/timeoracle/SKILL.md
+mkdir -p ~/.openclaw/skills/digitalgulag
+cp skill.md ~/.openclaw/skills/digitalgulag/SKILL.md
 ```
 
 ### 2. Set environment variables
@@ -16,15 +16,15 @@ cp skill.md ~/.openclaw/skills/timeoracle/SKILL.md
 Add to your OpenClaw environment (`~/.openclaw/.env` or shell profile):
 
 ```bash
-TIMEORACLE_API_URL=https://your-timeoracle-instance.com   # no trailing slash
-TIMEORACLE_TOKEN=your-jwt-token-here
+DIGITALGULAG_API_URL=https://your-digitalgulag-instance.com   # no trailing slash
+DIGITALGULAG_TOKEN=your-jwt-token-here
 ```
 
-To get a token, log in via the TimeOracle API:
+To get a token, log in via the digitalgulag API:
 
 ```bash
 # If you have email/password:
-curl -s -X POST "$TIMEORACLE_API_URL/api/users/login" \
+curl -s -X POST "$DIGITALGULAG_API_URL/api/users/login" \
   -H "Content-Type: application/json" \
   -d '{"email": "you@example.com", "password": "yourpassword"}' | jq -r .token
 ```
@@ -33,11 +33,11 @@ curl -s -X POST "$TIMEORACLE_API_URL/api/users/login" \
 
 ```bash
 openclaw cron add \
-  --name "TimeOracle sync" \
+  --name "digitalgulag sync" \
   --cron "0 * * * *" \
   --tz "$(cat /etc/timezone 2>/dev/null || echo UTC)" \
   --session isolated \
-  --message "Run the timeoracle skill. Scan activity sessions from the last 2 hours and create/update timeline entries for today."
+  --message "Run the digitalgulag skill. Scan activity sessions from the last 2 hours and create/update timeline entries for today."
 ```
 
 ### 4. Test it

@@ -1,6 +1,6 @@
-# TimeOracle Daemon
+# digitalgulag Daemon
 
-Rust background daemon that captures computer activity (active window, app name, idle state) and sends it to the TimeOracle FastAPI server.
+Rust background daemon that captures computer activity (active window, app name, idle state) and sends it to the digitalgulag FastAPI server.
 
 ## Architecture
 
@@ -20,12 +20,12 @@ Communication between threads:
 |------|---------|
 | `main.rs` | CLI dispatch, thread orchestration, headless/tray modes |
 | `cli.rs` | clap subcommands: `run`, `login`, `install`, `status` |
-| `config.rs` | TOML config at `~/.timeoracle/config.toml` with defaults and validation |
+| `config.rs` | TOML config at `~/.digitalgulag/config.toml` with defaults and validation |
 | `error.rs` | `DaemonError` enum (thiserror) and `Result` type alias |
 | `events.rs` | `ActivityEvent`, `WindowInfo`, `EventType` structs |
 | `auth.rs` | Interactive login (POST `/api/users/login`), JWT expiry check |
 | `engine.rs` | Core capture loop: poll → idle check → window diff → heartbeat → buffer |
-| `buffer.rs` | SQLite (WAL mode) local event buffer at `~/.timeoracle/buffer.db` |
+| `buffer.rs` | SQLite (WAL mode) local event buffer at `~/.digitalgulag/buffer.db` |
 | `sync.rs` | HTTP flush task: batch read from buffer → POST `/api/activity/events` → delete on success |
 | `tray.rs` | System tray icon + menu via `tray-icon`/`muda` crates (Linux GTK) |
 | `service.rs` | systemd unit / launchd plist generation and install/uninstall |
@@ -61,19 +61,19 @@ Communication between threads:
 Download the `.deb` from GitHub Releases or CI artifacts, then:
 
 ```bash
-sudo dpkg -i timeoracle-daemon_<version>_amd64.deb
+sudo dpkg -i digitalgulag-daemon_<version>_amd64.deb
 ```
 
 The package installs:
-- Binary to `/usr/bin/timeoracle-daemon`
-- systemd user service to `/usr/lib/systemd/user/timeoracle-daemon.service`
+- Binary to `/usr/bin/digitalgulag-daemon`
+- systemd user service to `/usr/lib/systemd/user/digitalgulag-daemon.service`
 - Runtime deps: `libgtk-3-0`, `libxss1`, `libxdo3`
 
 After install, login and enable the service:
 
 ```bash
-timeoracle-daemon login --server-url http://localhost:8000
-systemctl --user enable --now timeoracle-daemon
+digitalgulag-daemon login --server-url http://localhost:8000
+systemctl --user enable --now digitalgulag-daemon
 ```
 
 The `.deb` is built by the `daemon-release.yml` workflow — triggered on `daemon-v*` tags (creates a GitHub Release) and on PRs touching `daemon/` (uploads as CI artifact).
@@ -94,15 +94,15 @@ cargo test
 ## CLI Usage
 
 ```bash
-timeoracle-daemon login --server-url http://localhost:8000
-timeoracle-daemon run              # with system tray
-timeoracle-daemon run --headless   # without GUI
-timeoracle-daemon status
-timeoracle-daemon install          # install systemd service
-timeoracle-daemon install --uninstall
+digitalgulag-daemon login --server-url http://localhost:8000
+digitalgulag-daemon run              # with system tray
+digitalgulag-daemon run --headless   # without GUI
+digitalgulag-daemon status
+digitalgulag-daemon install          # install systemd service
+digitalgulag-daemon install --uninstall
 ```
 
-## Config (`~/.timeoracle/config.toml`)
+## Config (`~/.digitalgulag/config.toml`)
 
 ```toml
 server_url = "http://localhost:8000"

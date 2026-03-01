@@ -1,4 +1,4 @@
-# TimeOracle
+# digitalgulag
 
 AI-powered personal time tracker. Rust daemon captures computer activity, FastAPI server analyzes it with AI, Vue 3 calendar UI displays the timeline.
 

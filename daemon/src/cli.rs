@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "timeoracle-daemon", about = "TimeOracle activity tracking daemon", version)]
+#[command(name = "digitalgulag-daemon", about = "digitalgulag activity tracking daemon", version)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Command>,
@@ -21,7 +21,7 @@ pub enum Command {
         config: Option<PathBuf>,
     },
 
-    /// Login to the TimeOracle server
+    /// Login to the digitalgulag server
     Login {
         /// Server URL
         #[arg(long, default_value = "http://localhost:8000")]

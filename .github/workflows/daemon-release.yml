@@ -42,23 +42,23 @@ jobs:
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
         with:
-          name: timeoracle-daemon-deb
+          name: digitalgulag-daemon-deb
           path: daemon/target/debian/*.deb
           retention-days: 14
 
       - name: Upload Linux binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: timeoracle-daemon-linux-binary
-          path: daemon/target/release/timeoracle-daemon
+          name: digitalgulag-daemon-linux-binary
+          path: daemon/target/release/digitalgulag-daemon
           retention-days: 14
 
       - name: Prepare release tarball
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           cd target/release
-          tar czf timeoracle-daemon-linux-x86_64.tar.gz timeoracle-daemon
-          sha256sum timeoracle-daemon-linux-x86_64.tar.gz > timeoracle-daemon-linux-x86_64.tar.gz.sha256
+          tar czf digitalgulag-daemon-linux-x86_64.tar.gz digitalgulag-daemon
+          sha256sum digitalgulag-daemon-linux-x86_64.tar.gz > digitalgulag-daemon-linux-x86_64.tar.gz.sha256
 
       - name: Upload release assets
         if: startsWith(github.ref, 'refs/tags/')
@@ -67,8 +67,8 @@ jobs:
           name: linux-release-assets
           path: |
             daemon/target/debian/*.deb
-            daemon/target/release/timeoracle-daemon-linux-x86_64.tar.gz
-            daemon/target/release/timeoracle-daemon-linux-x86_64.tar.gz.sha256
+            daemon/target/release/digitalgulag-daemon-linux-x86_64.tar.gz
+            daemon/target/release/digitalgulag-daemon-linux-x86_64.tar.gz.sha256
 
   build-macos:
     runs-on: macos-latest
@@ -88,9 +88,9 @@ jobs:
 
       - name: Assemble .app bundle
         run: |
-          mkdir -p TimeOracle.app/Contents/MacOS
-          cp target/release/timeoracle-daemon TimeOracle.app/Contents/MacOS/
-          cp pkg/macos/Info.plist TimeOracle.app/Contents/
+          mkdir -p digitalgulag.app/Contents/MacOS
+          cp target/release/digitalgulag-daemon digitalgulag.app/Contents/MacOS/
+          cp pkg/macos/Info.plist digitalgulag.app/Contents/
 
       - name: Create .pkg installer
         run: |
@@ -98,22 +98,22 @@ jobs:
           VERSION="${VERSION:-0.0.0}"
 
           pkgbuild \
-            --component TimeOracle.app \
+            --component digitalgulag.app \
             --install-location /Applications \
             --scripts pkg/macos/scripts \
-            --identifier com.timeoracle.daemon \
+            --identifier com.digitalgulag.daemon \
             --version "$VERSION" \
-            timeoracle-daemon-macos-arm64.pkg
+            digitalgulag-daemon-macos-arm64.pkg
 
-          shasum -a 256 timeoracle-daemon-macos-arm64.pkg > timeoracle-daemon-macos-arm64.pkg.sha256
+          shasum -a 256 digitalgulag-daemon-macos-arm64.pkg > digitalgulag-daemon-macos-arm64.pkg.sha256
 
       - name: Upload .pkg artifact
         uses: actions/upload-artifact@v4
         with:
-          name: timeoracle-daemon-pkg
+          name: digitalgulag-daemon-pkg
           path: |
-            daemon/timeoracle-daemon-macos-arm64.pkg
-            daemon/timeoracle-daemon-macos-arm64.pkg.sha256
+            daemon/digitalgulag-daemon-macos-arm64.pkg
+            daemon/digitalgulag-daemon-macos-arm64.pkg.sha256
           retention-days: 14
 
   release:
@@ -130,7 +130,7 @@ jobs:
       - name: Download macOS release assets
         uses: actions/download-artifact@v4
         with:
-          name: timeoracle-daemon-pkg
+          name: digitalgulag-daemon-pkg
           path: release-assets/
 
       - name: Create GitHub Release

@@ -3,22 +3,22 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>TimeOracle</string>
+    <string>digitalgulag</string>
     <key>CFBundleDisplayName</key>
-    <string>TimeOracle</string>
+    <string>digitalgulag</string>
     <key>CFBundleIdentifier</key>
-    <string>com.timeoracle.daemon</string>
+    <string>com.digitalgulag.daemon</string>
     <key>CFBundleVersion</key>
     <string>0.1.0</string>
     <key>CFBundleShortVersionString</key>
     <string>0.1.0</string>
     <key>CFBundleExecutable</key>
-    <string>timeoracle-daemon</string>
+    <string>digitalgulag-daemon</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSScreenCaptureUsageDescription</key>
-    <string>TimeOracle needs Screen Recording access to capture window titles for activity tracking.</string>
+    <string>digitalgulag needs Screen Recording access to capture window titles for activity tracking.</string>
 </dict>
 </plist>

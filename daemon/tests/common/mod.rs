@@ -1,4 +1,4 @@
-use timeoracle_daemon::events::{ActivityEvent, WindowInfo};
+use digitalgulag_daemon::events::{ActivityEvent, WindowInfo};
 
 pub fn make_test_event() -> ActivityEvent {
     ActivityEvent::window_change(WindowInfo {

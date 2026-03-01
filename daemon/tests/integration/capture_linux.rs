@@ -1,6 +1,6 @@
 #[cfg(target_os = "linux")]
 mod linux_x11_tests {
-    use timeoracle_daemon::capture::ActivitySource;
+    use digitalgulag_daemon::capture::ActivitySource;
 
     #[test]
     fn test_x11_connection() {
@@ -9,7 +9,7 @@ mod linux_x11_tests {
             return;
         }
 
-        let source = timeoracle_daemon::capture::linux_x11::X11Source::new();
+        let source = digitalgulag_daemon::capture::linux_x11::X11Source::new();
         assert!(source.is_ok(), "X11 source should connect when DISPLAY is set");
     }
 
@@ -19,7 +19,7 @@ mod linux_x11_tests {
             return;
         }
 
-        let source = match timeoracle_daemon::capture::linux_x11::X11Source::new() {
+        let source = match digitalgulag_daemon::capture::linux_x11::X11Source::new() {
             Ok(s) => s,
             Err(_) => return, // Can't connect, skip
         };

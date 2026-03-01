@@ -1,3 +1,3 @@
 #!/bin/bash
 mkdir -p /usr/local/bin
-ln -sf /Applications/TimeOracle.app/Contents/MacOS/timeoracle-daemon /usr/local/bin/timeoracle-daemon
+ln -sf /Applications/digitalgulag.app/Contents/MacOS/digitalgulag-daemon /usr/local/bin/digitalgulag-daemon

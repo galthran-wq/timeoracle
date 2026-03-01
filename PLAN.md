@@ -1,8 +1,8 @@
-# TimeOracle — High-Level Architecture & Task Breakdown
+# digitalgulag — High-Level Architecture & Task Breakdown
 
 ## Context
 
-TimeOracle is an AI-powered personal time tracker. A Rust daemon running on the user's machine captures activity data (active windows, URLs, app usage) and streams it to a server. On the server, an AI agent analyzes the raw data and produces a human-readable timeline — automatically labeling what you were doing without manual input. External sources (Oura ring, etc.) fill in offline/physical activity gaps. The frontend is a calendar-like view of your AI-generated day.
+digitalgulag is an AI-powered personal time tracker. A Rust daemon running on the user's machine captures activity data (active windows, URLs, app usage) and streams it to a server. On the server, an AI agent analyzes the raw data and produces a human-readable timeline — automatically labeling what you were doing without manual input. External sources (Oura ring, etc.) fill in offline/physical activity gaps. The frontend is a calendar-like view of your AI-generated day.
 
 ## Architecture Overview
 
@@ -73,7 +73,7 @@ TimeOracle is an AI-powered personal time tracker. A Rust daemon running on the 
 ## Task 1: Rust Daemon — Activity Capture
 
 ### Goal
-A lightweight background process that silently captures what the user is doing on their computer and reliably delivers that data to the TimeOracle server.
+A lightweight background process that silently captures what the user is doing on their computer and reliably delivers that data to the digitalgulag server.
 
 ### Requirements
 - Runs on Linux (X11 + Wayland) and macOS
@@ -92,10 +92,10 @@ A lightweight background process that silently captures what the user is doing o
    - **macOS**: Use `core-graphics` crate (`CGWindowListCopyWindowInfo`) and accessibility APIs.
 3. **Idle detection**: Monitor last input time. Linux: read from `/proc/interrupts` or X11 screensaver extension. macOS: `CGEventSourceSecondsSinceLastEventType`.
 4. **Event loop**: Tokio-based loop — poll every N seconds, diff against last state, emit `ActivityEvent` structs when the active window changes or periodically.
-5. **Local buffer**: SQLite file in `~/.timeoracle/buffer.db`. Write events there first. A separate flush task sends batches to `POST /api/activity/events` and deletes on success.
-6. **Auth**: Read JWT from `~/.timeoracle/config.toml`. Provide a `timeoracle-daemon login` CLI command that hits the server's login endpoint and stores the token.
-7. **Service installation**: Provide `timeoracle-daemon install` command that writes a systemd unit file (Linux) or LaunchAgent plist (macOS).
-8. **Config**: TOML file at `~/.timeoracle/config.toml` — server URL, token, poll interval, ignore list.
+5. **Local buffer**: SQLite file in `~/.digitalgulag/buffer.db`. Write events there first. A separate flush task sends batches to `POST /api/activity/events` and deletes on success.
+6. **Auth**: Read JWT from `~/.digitalgulag/config.toml`. Provide a `digitalgulag-daemon login` CLI command that hits the server's login endpoint and stores the token.
+7. **Service installation**: Provide `digitalgulag-daemon install` command that writes a systemd unit file (Linux) or LaunchAgent plist (macOS).
+8. **Config**: TOML file at `~/.digitalgulag/config.toml` — server URL, token, poll interval, ignore list.
 
 ---
 
@@ -269,7 +269,7 @@ Make the product installable, reliable, and ready for real daily use.
 1. **Daemon packaging**:
    - Linux: `.deb` package via `cargo-deb`, plus a shell install script. Systemd service included.
    - macOS: Homebrew formula or downloadable binary + install script. LaunchAgent plist included.
-   - Both: `timeoracle-daemon setup` wizard — prompts for server URL, authenticates, installs service.
+   - Both: `digitalgulag-daemon setup` wizard — prompts for server URL, authenticates, installs service.
 2. **Production hardening**:
    - Rate limiting on ingestion endpoint (per-user, token bucket).
    - CORS config for the frontend domain.

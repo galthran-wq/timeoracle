@@ -27,11 +27,11 @@ fn main() -> anyhow::Result<()> {
             let config = Config::load(&config_path)?;
 
             init_tracing(&config.log_level);
-            tracing::info!("Starting TimeOracle daemon");
+            tracing::info!("Starting digitalgulag daemon");
 
             if headless {
                 if config.auth_token.is_none() {
-                    anyhow::bail!("Not logged in. Run `timeoracle-daemon login` first.");
+                    anyhow::bail!("Not logged in. Run `digitalgulag-daemon login` first.");
                 }
                 run_headless(config)?;
             } else {
@@ -128,15 +128,15 @@ fn show_status() -> anyhow::Result<()> {
     let config_path = Config::default_config_path()?;
     let config = Config::load(&config_path)?;
 
-    println!("TimeOracle Daemon Status");
-    println!("========================");
+    println!("digitalgulag Daemon Status");
+    println!("==========================");
     println!("Config: {}", config_path.display());
     println!("Server: {}", config.server_url);
 
     match &config.auth_token {
         Some(token) => {
             if auth::is_token_expired(token) {
-                println!("Auth: Token expired — run `timeoracle-daemon login`");
+                println!("Auth: Token expired — run `digitalgulag-daemon login`");
             } else {
                 println!("Auth: Logged in");
             }

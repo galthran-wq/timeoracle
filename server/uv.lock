@@ -1335,7 +1335,7 @@ wheels = [
 ]
 
 [[package]]
-name = "timeoracle-server"
+name = "digitalgulag-server"
 version = "1.0.0"
 source = { virtual = "." }
 dependencies = [

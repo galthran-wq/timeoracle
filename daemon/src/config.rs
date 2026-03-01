@@ -81,7 +81,7 @@ impl Config {
     pub fn config_dir() -> Result<PathBuf> {
         let home = std::env::var("HOME")
             .map_err(|_| DaemonError::Config("HOME environment variable not set".into()))?;
-        Ok(PathBuf::from(home).join(".timeoracle"))
+        Ok(PathBuf::from(home).join(".digitalgulag"))
     }
 
     pub fn default_config_path() -> Result<PathBuf> {

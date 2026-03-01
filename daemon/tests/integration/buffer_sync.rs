@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicU16, Ordering};
 use tempfile::TempDir;
 
 use axum::{routing::post, Json, Router};
-use timeoracle_daemon::buffer::EventBuffer;
-use timeoracle_daemon::events::ActivityEvent;
+use digitalgulag_daemon::buffer::EventBuffer;
+use digitalgulag_daemon::events::ActivityEvent;
 
 use crate::common;
 

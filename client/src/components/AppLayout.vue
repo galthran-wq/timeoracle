@@ -37,7 +37,7 @@ function onMenuSelect(key: string) {
 <template>
   <NLayout style="height: 100%">
     <NLayoutHeader class="app-header">
-      <span class="brand">TimeOracle</span>
+      <span class="brand">digitalgulag</span>
       <NMenu
         mode="horizontal"
         :value="menuKey"
