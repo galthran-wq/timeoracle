@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     default_llm_model: str = "openai:gpt-4o-mini"
     chat_llm_model: str = "openai:gpt-4o-mini"
     enable_cron_generation: bool = False
+
+    langfuse_public_key: Optional[str] = None
+    langfuse_secret_key: Optional[str] = None
+    langfuse_host: Optional[str] = None
     
     @property
     def postgres_url(self) -> str:

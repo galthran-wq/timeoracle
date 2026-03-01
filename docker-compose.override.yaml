@@ -40,8 +40,23 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana
 
+  clickhouse:
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
+  minio:
+    volumes:
+      - minio_data:/data
+
+  langfuse-redis:
+    volumes:
+      - langfuse_redis_data:/data
+
 volumes:
   dev_postgres_data:
   dev_mongodb_data:
   prometheus_data:
-  grafana_data: 
+  grafana_data:
+  clickhouse_data:
+  minio_data:
+  langfuse_redis_data: 

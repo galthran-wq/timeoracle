@@ -45,7 +45,33 @@ services:
       - grafana_data:/var/lib/grafana
     restart: unless-stopped
 
+  langfuse-web:
+    environment:
+      NEXTAUTH_URL: ${PUBLIC_BASE_URL}/langfuse
+    restart: unless-stopped
+
+  langfuse-worker:
+    restart: unless-stopped
+
+  clickhouse:
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    restart: unless-stopped
+
+  minio:
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+  langfuse-redis:
+    volumes:
+      - langfuse_redis_data:/data
+    restart: unless-stopped
+
 volumes:
   prod_client_build:
   prometheus_data:
-  grafana_data: 
+  grafana_data:
+  clickhouse_data:
+  minio_data:
+  langfuse_redis_data: 

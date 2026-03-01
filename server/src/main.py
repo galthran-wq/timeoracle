@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.langfuse_secret_key:
+        from pydantic_ai import Agent
+        Agent.instrument_all()
+        logger.info("LangFuse OTEL instrumentation enabled")
+
     cron_task = None
     if settings.enable_cron_generation:
         from src.agent.scheduler import cron_generation_loop
