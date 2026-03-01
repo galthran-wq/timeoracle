@@ -44,9 +44,28 @@ fn to_server_event(event: &ActivityEvent) -> ServerEvent {
         None => ("system".to_string(), String::new(), None),
     };
 
-    let metadata = event.idle_duration_secs.map(|d| {
-        serde_json::json!({"idle_duration_secs": d})
-    });
+    let mut meta_map = serde_json::Map::new();
+
+    if let Some(d) = event.idle_duration_secs {
+        meta_map.insert(
+            "idle_duration_secs".into(),
+            serde_json::Value::Number(d.into()),
+        );
+    }
+
+    if let Some(ref audio) = event.audio_info {
+        if !audio.streams.is_empty() {
+            if let Ok(val) = serde_json::to_value(audio) {
+                meta_map.insert("audio".into(), val);
+            }
+        }
+    }
+
+    let metadata = if meta_map.is_empty() {
+        None
+    } else {
+        Some(serde_json::Value::Object(meta_map))
+    };
 
     ServerEvent {
         client_event_id: event.id,
@@ -243,7 +262,7 @@ mod tests {
                 app_name: "Test".into(),
                 window_title: "Window".into(),
                 url: None,
-            })).unwrap();
+            }, None)).unwrap();
         }
     }
 
@@ -356,7 +375,7 @@ mod tests {
             app_name: "Firefox".into(),
             window_title: "GitHub".into(),
             url: Some("https://github.com".into()),
-        });
+        }, None);
         let server_event = to_server_event(&event);
 
         assert_eq!(server_event.client_event_id, event.id);
@@ -373,7 +392,7 @@ mod tests {
             app_name: "VSCode".into(),
             window_title: "main.rs".into(),
             url: None,
-        });
+        }, None);
         let server_event = to_server_event(&event);
 
         assert_eq!(server_event.event_type, "active_window");
@@ -401,12 +420,61 @@ mod tests {
     }
 
     #[test]
+    fn test_to_server_event_with_audio_metadata() {
+        use crate::events::{AudioInfo, AudioPlaybackState, AudioStream};
+
+        let event = ActivityEvent::window_change(
+            WindowInfo {
+                app_name: "Firefox".into(),
+                window_title: "YouTube".into(),
+                url: None,
+            },
+            Some(AudioInfo {
+                streams: vec![AudioStream {
+                    app_name: "Spotify".into(),
+                    title: Some("Song".into()),
+                    artist: Some("Artist".into()),
+                    state: AudioPlaybackState::Playing,
+                    volume_percent: Some(50),
+                    muted: false,
+                }],
+            }),
+        );
+        let server_event = to_server_event(&event);
+        let meta = server_event.metadata.unwrap();
+        assert!(meta["audio"]["streams"].is_array());
+        assert_eq!(meta["audio"]["streams"][0]["app_name"], "Spotify");
+        assert_eq!(meta["audio"]["streams"][0]["title"], "Song");
+    }
+
+    #[test]
+    fn test_to_server_event_both_idle_and_audio_metadata() {
+        use crate::events::{AudioInfo, AudioPlaybackState, AudioStream};
+
+        let mut event = ActivityEvent::idle_end(600);
+        event.audio_info = Some(AudioInfo {
+            streams: vec![AudioStream {
+                app_name: "VLC".into(),
+                title: None,
+                artist: None,
+                state: AudioPlaybackState::Playing,
+                volume_percent: Some(80),
+                muted: false,
+            }],
+        });
+        let server_event = to_server_event(&event);
+        let meta = server_event.metadata.unwrap();
+        assert_eq!(meta["idle_duration_secs"], 600);
+        assert!(meta["audio"]["streams"].is_array());
+    }
+
+    #[test]
     fn test_batch_request_json_shape() {
         let event = ActivityEvent::window_change(WindowInfo {
             app_name: "Test".into(),
             window_title: "Win".into(),
             url: None,
-        });
+        }, None);
         let batch = ServerBatchRequest {
             events: vec![to_server_event(&event)],
         };

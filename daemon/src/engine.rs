@@ -1,8 +1,8 @@
 use crate::buffer::EventBuffer;
-use crate::capture::{ActivitySource, IdleDetector};
+use crate::capture::{ActivitySource, AudioSource, IdleDetector};
 use crate::config::Config;
 use crate::error::Result;
-use crate::events::{ActivityEvent, WindowInfo};
+use crate::events::{ActivityEvent, AudioInfo, WindowInfo};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, mpsc, watch};
@@ -49,7 +49,8 @@ pub async fn run(
 ) -> Result<()> {
     let source = crate::capture::create_activity_source();
     let idle_detector = crate::capture::create_idle_detector();
-    run_with(config, buffer, &*source, &*idle_detector, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
+    let audio_source = crate::capture::create_audio_source(&config);
+    run_with(config, buffer, &*source, &*idle_detector, audio_source.as_deref(), &mut cmd_rx, &status_tx, &mut shutdown_rx).await
 }
 
 pub async fn run_with(
@@ -57,6 +58,7 @@ pub async fn run_with(
     buffer: Arc<Mutex<EventBuffer>>,
     source: &dyn ActivitySource,
     idle_detector: &dyn IdleDetector,
+    audio_source: Option<&dyn AudioSource>,
     cmd_rx: &mut mpsc::Receiver<EngineCommand>,
     status_tx: &watch::Sender<DaemonStatus>,
     shutdown_rx: &mut broadcast::Receiver<()>,
@@ -161,8 +163,10 @@ pub async fn run_with(
                     None => true,
                 };
 
+                let audio_info = capture_audio(audio_source);
+
                 if changed {
-                    let event = ActivityEvent::window_change(window.clone());
+                    let event = ActivityEvent::window_change(window.clone(), audio_info);
                     store_event(&buffer, &event);
                     last_window = Some(window);
                     last_change_time = Instant::now();
@@ -171,7 +175,7 @@ pub async fn run_with(
                     // Same window — check heartbeat
                     let elapsed = last_change_time.elapsed().as_secs();
                     if elapsed >= config.heartbeat_interval_secs {
-                        let event = ActivityEvent::heartbeat(window);
+                        let event = ActivityEvent::heartbeat(window, audio_info);
                         store_event(&buffer, &event);
                         last_change_time = Instant::now();
                     }
@@ -196,6 +200,17 @@ fn store_event(buffer: &Arc<Mutex<EventBuffer>>, event: &ActivityEvent) {
     }
 }
 
+fn capture_audio(audio_source: Option<&dyn AudioSource>) -> Option<AudioInfo> {
+    audio_source.and_then(|src| match src.get_active_audio() {
+        Ok(info) if !info.streams.is_empty() => Some(info),
+        Ok(_) => None,
+        Err(e) => {
+            tracing::debug!("Audio capture failed: {e}");
+            None
+        }
+    })
+}
+
 fn update_status(
     status_tx: &watch::Sender<DaemonStatus>,
     buffer: &Arc<Mutex<EventBuffer>>,
@@ -218,8 +233,8 @@ fn update_status(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::capture::{MockActivitySource, MockIdleDetector};
-    use crate::events::EventType;
+    use crate::capture::{MockActivitySource, MockAudioSource, MockIdleDetector};
+    use crate::events::{AudioPlaybackState, AudioStream, EventType};
     use tempfile::TempDir;
     use tokio::sync::{broadcast, mpsc, watch};
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -276,7 +291,7 @@ mod tests {
         // Run engine for a short time then shut down
         let buffer_clone = buffer.clone();
         let handle = tokio::spawn(async move {
-            run_with(config, buffer_clone, &mock_source, &mock_idle, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
+            run_with(config, buffer_clone, &mock_source, &mock_idle, None, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
         });
 
         tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
@@ -311,7 +326,7 @@ mod tests {
 
         let buffer_clone = buffer.clone();
         let handle = tokio::spawn(async move {
-            run_with(config, buffer_clone, &mock_source, &mock_idle, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
+            run_with(config, buffer_clone, &mock_source, &mock_idle, None, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
         });
 
         // Wait for multiple ticks
@@ -348,7 +363,7 @@ mod tests {
 
         let buffer_clone = buffer.clone();
         let handle = tokio::spawn(async move {
-            run_with(config, buffer_clone, &mock_source, &mock_idle, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
+            run_with(config, buffer_clone, &mock_source, &mock_idle, None, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
         });
 
         tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
@@ -387,7 +402,7 @@ mod tests {
 
         let buffer_clone = buffer.clone();
         let handle = tokio::spawn(async move {
-            run_with(config, buffer_clone, &mock_source, &mock_idle, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
+            run_with(config, buffer_clone, &mock_source, &mock_idle, None, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
         });
 
         // First tick: active, should get WindowChange
@@ -436,7 +451,7 @@ mod tests {
 
         let buffer_clone = buffer.clone();
         let handle = tokio::spawn(async move {
-            run_with(config, buffer_clone, &mock_source, &mock_idle, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
+            run_with(config, buffer_clone, &mock_source, &mock_idle, None, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
         });
 
         // Let it capture one event
@@ -484,7 +499,7 @@ mod tests {
 
         let buffer_clone = buffer.clone();
         let handle = tokio::spawn(async move {
-            run_with(config, buffer_clone, &mock_source, &mock_idle, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
+            run_with(config, buffer_clone, &mock_source, &mock_idle, None, &mut cmd_rx, &status_tx, &mut shutdown_rx).await
         });
 
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -496,5 +511,92 @@ mod tests {
             handle,
         ).await;
         assert!(result.is_ok(), "Engine should quit promptly");
+    }
+
+    #[tokio::test]
+    async fn test_audio_info_attached_to_events() {
+        let config = test_config();
+        let (_dir, buffer) = test_buffer();
+        let (shutdown_tx, mut shutdown_rx) = broadcast::channel(1);
+        let (_cmd_tx, mut cmd_rx) = mpsc::channel(32);
+        let (status_tx, _status_rx) = watch::channel(DaemonStatus::default());
+
+        let mut mock_source = MockActivitySource::new();
+        mock_source.expect_get_active_window()
+            .returning(|| Ok(Some(WindowInfo {
+                app_name: "Firefox".into(),
+                window_title: "GitHub".into(),
+                url: None,
+            })));
+
+        let mut mock_idle = MockIdleDetector::new();
+        mock_idle.expect_get_idle_seconds().returning(|| Ok(0));
+
+        let mut mock_audio = MockAudioSource::new();
+        mock_audio.expect_get_active_audio()
+            .returning(|| Ok(AudioInfo {
+                streams: vec![AudioStream {
+                    app_name: "Spotify".into(),
+                    title: Some("Test Song".into()),
+                    artist: Some("Test Artist".into()),
+                    state: AudioPlaybackState::Playing,
+                    volume_percent: Some(75),
+                    muted: false,
+                }],
+            }));
+
+        let buffer_clone = buffer.clone();
+        let handle = tokio::spawn(async move {
+            run_with(config, buffer_clone, &mock_source, &mock_idle, Some(&mock_audio), &mut cmd_rx, &status_tx, &mut shutdown_rx).await
+        });
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+        let _ = shutdown_tx.send(());
+        handle.await.unwrap().unwrap();
+
+        let events = buffer.lock().unwrap().read_batch(10).unwrap();
+        assert!(!events.is_empty());
+        let audio = events[0].1.audio_info.as_ref().expect("Should have audio_info");
+        assert_eq!(audio.streams.len(), 1);
+        assert_eq!(audio.streams[0].app_name, "Spotify");
+        assert_eq!(audio.streams[0].title.as_deref(), Some("Test Song"));
+    }
+
+    #[tokio::test]
+    async fn test_audio_error_does_not_block_capture() {
+        let config = test_config();
+        let (_dir, buffer) = test_buffer();
+        let (shutdown_tx, mut shutdown_rx) = broadcast::channel(1);
+        let (_cmd_tx, mut cmd_rx) = mpsc::channel(32);
+        let (status_tx, _status_rx) = watch::channel(DaemonStatus::default());
+
+        let mut mock_source = MockActivitySource::new();
+        mock_source.expect_get_active_window()
+            .returning(|| Ok(Some(WindowInfo {
+                app_name: "Editor".into(),
+                window_title: "file.rs".into(),
+                url: None,
+            })));
+
+        let mut mock_idle = MockIdleDetector::new();
+        mock_idle.expect_get_idle_seconds().returning(|| Ok(0));
+
+        let mut mock_audio = MockAudioSource::new();
+        mock_audio.expect_get_active_audio()
+            .returning(|| Err(crate::error::DaemonError::Config("audio unavailable".into())));
+
+        let buffer_clone = buffer.clone();
+        let handle = tokio::spawn(async move {
+            run_with(config, buffer_clone, &mock_source, &mock_idle, Some(&mock_audio), &mut cmd_rx, &status_tx, &mut shutdown_rx).await
+        });
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+        let _ = shutdown_tx.send(());
+        handle.await.unwrap().unwrap();
+
+        let count = buffer.lock().unwrap().count().unwrap();
+        assert!(count >= 1, "Window events should still be captured despite audio errors");
+        let events = buffer.lock().unwrap().read_batch(10).unwrap();
+        assert!(events[0].1.audio_info.is_none(), "Audio info should be None on error");
     }
 }
