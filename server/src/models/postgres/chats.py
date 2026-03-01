@@ -20,6 +20,6 @@ class ChatModel(Base):
     trigger = Column(String(20), nullable=False)  # "cron", "chat", "generate"
     llm_model = Column(String(100), nullable=False)
     messages = Column(JSONB, server_default="[]")
-    total_input_tokens = Column(Integer, server_default="0")
-    total_output_tokens = Column(Integer, server_default="0")
+    total_input_tokens = Column(Integer, nullable=False, server_default="0")
+    total_output_tokens = Column(Integer, nullable=False, server_default="0")
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -1,8 +1,7 @@
-from datetime import date, datetime
+from datetime import date
 from typing import Optional
-from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
@@ -17,16 +16,3 @@ class GenerateRequest(BaseModel):
 class GenerateResponse(BaseModel):
     message: str
     chat_id: str
-
-
-class ChatResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    user_id: UUID
-    date: Optional[date]
-    trigger: str
-    llm_model: str
-    total_input_tokens: int
-    total_output_tokens: int
-    created_at: datetime
