@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.auth import get_current_user
 from src.core.database import get_postgres_session
 from src.models.postgres.users import UserModel
+from src.repositories.agent_memories import AgentMemoryRepository
 from src.repositories.timeline_entries import TimelineEntryRepository
 from src.schemas.timeline_entries import (
     TimelineEntryBulkError,
@@ -123,6 +124,7 @@ async def update_entry(
     body: TimelineEntryUpdate,
     current_user: UserModel = Depends(get_current_user),
     repo: TimelineEntryRepository = Depends(get_timeline_repository),
+    session: AsyncSession = Depends(get_postgres_session),
 ):
     entry = await repo.get_by_id(entry_id)
     if not entry or entry.user_id != current_user.id:
@@ -132,6 +134,10 @@ async def update_entry(
     effective_end = body.end_time if body.end_time is not None else entry.end_time
     if effective_end <= effective_start:
         raise HTTPException(status_code=400, detail="end_time must be after start_time")
+
+    old_category = entry.category
+    old_label = entry.label
+    was_ai_generated = entry.source == "ai_generated"
 
     cfg = current_user.session_config or {}
     day_start_hour = cfg.get("day_start_hour", 0)
@@ -143,7 +149,34 @@ async def update_entry(
 
     try:
         updated = await repo.update(entry, body)
+
+        if was_ai_generated:
+            new_category = updated.category
+            new_label = updated.label
+            category_changed = body.category is not None and new_category != old_category
+            label_changed = body.label is not None and new_label != old_label
+            if category_changed or label_changed:
+                source_hint = updated.source_summary or updated.label
+                parts = []
+                if category_changed:
+                    parts.append(f"category '{new_category}' not '{old_category}'")
+                if label_changed:
+                    parts.append(f"label '{new_label}' not '{old_label}'")
+                memory_content = f"Activity with '{source_hint}' should be {', '.join(parts)}"
+                try:
+                    memory_repo = AgentMemoryRepository(session)
+                    await memory_repo.create(
+                        user_id=current_user.id,
+                        content=memory_content,
+                        source="correction",
+                        source_entry_id=entry_id,
+                    )
+                except Exception:
+                    logger.warning("Failed to create correction memory for entry %s", entry_id)
+
         return TimelineEntryResponse.model_validate(updated)
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Failed to update timeline entry %s", entry_id)
         raise HTTPException(status_code=500, detail="Internal server error")

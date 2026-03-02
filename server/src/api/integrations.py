@@ -222,7 +222,7 @@ async def _handle_telegram_chat(
     tg_chat_id: int,
 ):
     from pydantic_ai.messages import ModelMessagesTypeAdapter
-    from src.agent.agent import agent, _build_deps
+    from src.agent.agent import agent, _build_deps, _load_memories
     from src.repositories.chats import ChatRepository
     from src.repositories.integrations import IntegrationRepository
     from src.services.telegram import TelegramClient
@@ -261,10 +261,13 @@ async def _handle_telegram_chat(
                 if raw:
                     message_history = ModelMessagesTypeAdapter.validate_python(raw)
 
+            memories = await _load_memories(session, integration.user_id)
+
             deps = _build_deps(
                 user_id=integration.user_id,
                 session=session,
                 chat_id=chat.id,
+                memories=memories,
             )
             result = await agent.run(
                 text,

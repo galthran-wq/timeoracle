@@ -1,5 +1,5 @@
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Optional
 from uuid import UUID
@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.repositories.activity_events import ActivityEventRepository
+from src.repositories.agent_memories import AgentMemoryRepository
 from src.repositories.timeline_entries import TimelineEntryRepository
 from src.repositories.chats import ChatRepository
 
@@ -22,3 +23,5 @@ class AgentDeps:
     chat_id: Optional[UUID] = None
     user_session_config: Optional[dict] = None
     event_queue: Optional[asyncio.Queue] = None
+    memories: list[str] = field(default_factory=list)
+    memory_repo: Optional[AgentMemoryRepository] = None

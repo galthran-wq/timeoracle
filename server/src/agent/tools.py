@@ -19,7 +19,7 @@ class TimelineEntry(BaseModel):
     end_time: str = Field(description="End time as ISO 8601 datetime with timezone")
     label: str = Field(description="Concise human-readable label (2-5 words)")
     description: str | None = Field(default=None, description="Optional longer description")
-    category: str | None = Field(default=None, description="One of: Work, Communication, Research, Entertainment, Health, Personal, Admin")
+    category: str | None = Field(default=None, description="One of the user's configured categories")
     color: str | None = Field(default=None, description="Hex color like #3B82F6")
     confidence: float | None = Field(default=None, description="Confidence score 0.0-1.0")
     source_summary: str | None = Field(default=None, description="Brief note on which apps/titles informed this label")
@@ -170,3 +170,23 @@ async def save_timeline_entries(ctx: RunContext[AgentDeps], entries: list[Timeli
         "skipped": skipped,
         "errors": [e["message"] for e in errors] if errors else [],
     }
+
+
+class MemoryInput(BaseModel):
+    content: str = Field(description="The classification rule or correction to remember for future timeline generation")
+
+
+async def save_memory(ctx: RunContext[AgentDeps], memory: MemoryInput) -> dict:
+    await _emit(ctx, "tool_call", {"name": "save_memory", "args": {"content": memory.content}})
+
+    if not ctx.deps.memory_repo:
+        return {"error": "Memory storage not available"}
+
+    await ctx.deps.memory_repo.create(
+        user_id=ctx.deps.user_id,
+        content=memory.content,
+        source="chat",
+    )
+
+    await _emit(ctx, "tool_result", {"name": "save_memory", "summary": "Memory saved"})
+    return {"status": "saved", "content": memory.content}

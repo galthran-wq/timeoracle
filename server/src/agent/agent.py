@@ -12,9 +12,11 @@ from src.agent.tools import (
     get_activity_sessions,
     get_existing_timeline,
     save_timeline_entries,
+    save_memory,
 )
 from src.core.config import settings
 from src.repositories.activity_events import ActivityEventRepository
+from src.repositories.agent_memories import AgentMemoryRepository
 from src.repositories.chats import ChatRepository
 from src.repositories.timeline_entries import TimelineEntryRepository
 
@@ -30,12 +32,22 @@ async def dynamic_system_prompt(ctx: RunContext[AgentDeps]) -> str:
         ctx.deps.target_date,
         day_start_hour=cfg.get("day_start_hour", 0),
         day_timezone=cfg.get("timezone", "UTC"),
+        categories=cfg.get("categories"),
+        classification_rules=cfg.get("classification_rules"),
+        memories=ctx.deps.memories or None,
     )
 
 
 agent.tool(get_activity_sessions)
 agent.tool(get_existing_timeline)
 agent.tool(save_timeline_entries)
+agent.tool(save_memory)
+
+
+async def _load_memories(session: AsyncSession, user_id: UUID) -> list[str]:
+    repo = AgentMemoryRepository(session)
+    rows = await repo.get_active_for_user(user_id, limit=50)
+    return [m.content for m in rows]
 
 
 def _build_deps(
@@ -45,6 +57,7 @@ def _build_deps(
     chat_id: UUID | None = None,
     user_session_config: dict | None = None,
     event_queue: asyncio.Queue | None = None,
+    memories: list[str] | None = None,
 ) -> AgentDeps:
     return AgentDeps(
         user_id=user_id,
@@ -56,6 +69,8 @@ def _build_deps(
         chat_id=chat_id,
         user_session_config=user_session_config,
         event_queue=event_queue,
+        memories=memories or [],
+        memory_repo=AgentMemoryRepository(session),
     )
 
 
@@ -73,12 +88,15 @@ async def generate_timeline(
         llm_model=model or (user_session_config or {}).get("llm_model") or settings.default_llm_model,
     )
 
+    memories = await _load_memories(session, user_id)
+
     deps = _build_deps(
         user_id=user_id,
         session=session,
         target_date=target_date,
         chat_id=chat.id,
         user_session_config=user_session_config,
+        memories=memories,
     )
 
     prompt = f"Generate timeline entries for {target_date.isoformat()}"

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.agent.agent import agent, _build_deps, generate_timeline
+from src.agent.agent import agent, _build_deps, _load_memories, generate_timeline
 from src.core.auth import get_current_user
 from src.core.config import settings
 from src.core.database import get_postgres_session
@@ -185,12 +185,15 @@ async def chat_stream(
 
     event_queue: asyncio.Queue = asyncio.Queue()
 
+    memories = await _load_memories(session, current_user.id)
+
     deps = _build_deps(
         user_id=current_user.id,
         session=session,
         chat_id=chat.id,
         user_session_config=current_user.session_config,
         event_queue=event_queue,
+        memories=memories,
     )
 
     async def run_agent():
