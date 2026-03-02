@@ -13,12 +13,14 @@ use objc2_core_graphics::{
 
 static SCREEN_RECORDING_WARNED: AtomicBool = AtomicBool::new(false);
 
-pub struct MacOSSource;
+pub struct MacOSSource {
+    url_capture: bool,
+}
 
 impl MacOSSource {
-    pub fn new() -> Self {
+    pub fn new(url_capture: bool) -> Self {
         tracing::info!("macOS capture initialized (NSWorkspace + CGWindowList)");
-        Self
+        Self { url_capture }
     }
 
     fn get_frontmost_app(&self) -> Option<(String, i32)> {
@@ -49,9 +51,8 @@ impl MacOSSource {
             }
             let dict = unsafe { &*(dict_ptr as *const CFDictionary) };
 
-            let (pid_key, layer_key, name_key) = unsafe {
-                (&*kCGWindowOwnerPID, &*kCGWindowLayer, &*kCGWindowName)
-            };
+            let (pid_key, layer_key, name_key) =
+                unsafe { (&*kCGWindowOwnerPID, &*kCGWindowLayer, &*kCGWindowName) };
 
             let pid = cf_dict_get_i32(dict, pid_key);
             if pid != Some(target_pid) {
@@ -98,6 +99,81 @@ fn cf_dict_get_string(dict: &CFDictionary, key: &CFString) -> Option<String> {
     Some(unsafe { &*(ptr as *const CFString) }.to_string())
 }
 
+fn get_browser_url(app_name: &str) -> Option<String> {
+    let script = jxa_url_script(app_name)?;
+    let mut child = std::process::Command::new("osascript")
+        .args(["-l", "JavaScript", "-e", &script])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok()?;
+
+    let timeout = std::time::Duration::from_millis(500);
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                if !status.success() {
+                    return None;
+                }
+                break;
+            }
+            Ok(None) => {
+                if start.elapsed() >= timeout {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    tracing::debug!("osascript timed out for {app_name}");
+                    return None;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Err(_) => return None,
+        }
+    }
+
+    let output = child.wait_with_output().ok()?;
+    let url = String::from_utf8(output.stdout).ok()?.trim().to_string();
+    if url.is_empty() {
+        return None;
+    }
+    Some(url)
+}
+
+fn escape_jxa_string(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn jxa_url_script(app_name: &str) -> Option<String> {
+    let lower = app_name.to_lowercase();
+    let escaped = escape_jxa_string(app_name);
+
+    if lower == "safari" {
+        return Some(format!(
+            "Application(\"{}\").windows[0].currentTab.url()",
+            escaped,
+        ));
+    }
+
+    let is_chromium = lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .any(|token| {
+            matches!(
+                token,
+                "chrome" | "chromium" | "brave" | "edge" | "vivaldi" | "opera" | "arc"
+            )
+        });
+
+    if is_chromium {
+        return Some(format!(
+            "Application(\"{}\").windows[0].activeTab.url()",
+            escaped,
+        ));
+    }
+
+    None
+}
+
 impl ActivitySource for MacOSSource {
     fn get_active_window(&self) -> Result<Option<WindowInfo>> {
         let (app_name, pid) = match self.get_frontmost_app() {
@@ -107,10 +183,16 @@ impl ActivitySource for MacOSSource {
 
         let window_title = self.get_window_title_for_pid(pid).unwrap_or_default();
 
+        let url = if self.url_capture {
+            get_browser_url(&app_name)
+        } else {
+            None
+        };
+
         Ok(Some(WindowInfo {
             app_name,
             window_title,
-            url: None,
+            url,
         }))
     }
 }

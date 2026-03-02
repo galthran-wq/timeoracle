@@ -8,14 +8,19 @@ use x11rb::rust_connection::RustConnection;
 pub struct X11Source {
     conn: RustConnection,
     root: u32,
+    url_capture: bool,
 }
 
 impl X11Source {
-    pub fn new() -> Result<Self> {
+    pub fn new(url_capture: bool) -> Result<Self> {
         let (conn, screen_num) = RustConnection::connect(None)
             .map_err(|e| DaemonError::Capture(format!("X11 connection failed: {e}")))?;
         let root = conn.setup().roots[screen_num].root;
-        Ok(Self { conn, root })
+        Ok(Self {
+            conn,
+            root,
+            url_capture,
+        })
     }
 
     fn get_active_window_id(&self) -> Result<Option<u32>> {
@@ -127,6 +132,31 @@ impl X11Source {
             None
         }
     }
+
+    fn get_window_pid(&self, window: u32) -> Option<u32> {
+        let atom = self
+            .conn
+            .intern_atom(false, b"_NET_WM_PID")
+            .ok()?
+            .reply()
+            .ok()?
+            .atom;
+
+        let reply = self
+            .conn
+            .get_property(false, window, atom, xproto::AtomEnum::CARDINAL, 0, 1)
+            .ok()?
+            .reply()
+            .ok()?;
+
+        if reply.value_len == 0 {
+            return None;
+        }
+
+        Some(u32::from_ne_bytes(
+            reply.value[..4].try_into().ok()?,
+        ))
+    }
 }
 
 impl ActivitySource for X11Source {
@@ -143,10 +173,17 @@ impl ActivitySource for X11Source {
             .get_window_name(window_id)
             .unwrap_or_else(|| "".into());
 
+        let url = if self.url_capture {
+            self.get_window_pid(window_id)
+                .and_then(|pid| super::linux_url::get_browser_url(&app_name, pid))
+        } else {
+            None
+        };
+
         Ok(Some(WindowInfo {
             app_name,
             window_title,
-            url: None,
+            url,
         }))
     }
 }

@@ -47,7 +47,7 @@ pub async fn run(
     status_tx: watch::Sender<DaemonStatus>,
     mut shutdown_rx: broadcast::Receiver<()>,
 ) -> Result<()> {
-    let source = crate::capture::create_activity_source();
+    let source = crate::capture::create_activity_source(config.url_capture);
     let idle_detector = crate::capture::create_idle_detector();
     let audio_source = crate::capture::create_audio_source(&config);
     run_with(
@@ -147,7 +147,7 @@ pub async fn run_with(
                     continue;
                 }
 
-                let window = match source.get_active_window() {
+                let mut window = match source.get_active_window() {
                     Ok(Some(w)) => w,
                     Ok(None) => continue,
                     Err(e) => {
@@ -160,6 +160,15 @@ pub async fn run_with(
                     window.app_name.to_lowercase().contains(&app.to_lowercase())
                 }) {
                     continue;
+                }
+
+                if let Some(last) = &last_window {
+                    if window.app_name == last.app_name
+                        && window.window_title == last.window_title
+                        && window.url.is_none()
+                    {
+                        window.url = last.url.clone();
+                    }
                 }
 
                 let changed = match &last_window {
