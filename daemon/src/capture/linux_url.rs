@@ -1,8 +1,10 @@
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 use zbus::blocking::Connection;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 
 static ATSPI_WARNED: AtomicBool = AtomicBool::new(false);
+static ATSPI_CONN: OnceLock<Option<Connection>> = OnceLock::new();
 
 const ROLE_TOOL_BAR: u32 = 57;
 const ROLE_ENTRY: u32 = 19;
@@ -34,20 +36,22 @@ fn detect_browser(app_name: &str) -> Option<BrowserType> {
 
 pub fn get_browser_url(app_name: &str, pid: u32) -> Option<String> {
     let browser_type = detect_browser(app_name)?;
-    let conn = connect_atspi().or_else(|| {
-        if !ATSPI_WARNED.swap(true, Ordering::Relaxed) {
+    let conn = ATSPI_CONN.get_or_init(|| {
+        let c = connect_atspi();
+        if c.is_none() && !ATSPI_WARNED.swap(true, Ordering::Relaxed) {
             tracing::warn!("AT-SPI2 bus unavailable — URL extraction disabled");
         }
-        None
-    })?;
+        c
+    });
+    let conn = conn.as_ref()?;
 
-    let app_bus = find_app_by_pid(&conn, pid)?;
+    let app_bus = find_app_by_pid(conn, pid)?;
     let toolbar_name = match browser_type {
         BrowserType::Firefox => "Navigation",
         BrowserType::Chromium => "",
     };
 
-    find_url_in_toolbar(&conn, &app_bus, toolbar_name, 6).filter(|u| is_url(u))
+    find_url_in_toolbar(conn, &app_bus, toolbar_name, 6).filter(|u| is_url(u))
 }
 
 fn is_url(s: &str) -> bool {
@@ -58,6 +62,9 @@ fn is_url(s: &str) -> bool {
         || s.starts_with("about:")
         || s.starts_with("chrome://")
         || s.starts_with("edge://")
+        || s.starts_with("brave://")
+        || s.starts_with("vivaldi://")
+        || s.starts_with("opera://")
 }
 
 fn connect_atspi() -> Option<Connection> {
@@ -316,6 +323,9 @@ mod tests {
         assert!(is_url("about:config"));
         assert!(is_url("chrome://settings"));
         assert!(is_url("edge://settings"));
+        assert!(is_url("brave://settings"));
+        assert!(is_url("vivaldi://settings"));
+        assert!(is_url("opera://settings"));
         assert!(!is_url(""));
         assert!(!is_url("github.com"));
         assert!(!is_url("search query"));

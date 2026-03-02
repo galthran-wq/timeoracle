@@ -101,17 +101,37 @@ fn cf_dict_get_string(dict: &CFDictionary, key: &CFString) -> Option<String> {
 
 fn get_browser_url(app_name: &str) -> Option<String> {
     let script = jxa_url_script(app_name)?;
-    let output = std::process::Command::new("osascript")
+    let mut child = std::process::Command::new("osascript")
         .args(["-l", "JavaScript", "-e", &script])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
-        .output()
+        .spawn()
         .ok()?;
 
-    if !output.status.success() {
-        return None;
+    let timeout = std::time::Duration::from_millis(500);
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                if !status.success() {
+                    return None;
+                }
+                break;
+            }
+            Ok(None) => {
+                if start.elapsed() >= timeout {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    tracing::debug!("osascript timed out for {app_name}");
+                    return None;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Err(_) => return None,
+        }
     }
 
+    let output = child.wait_with_output().ok()?;
     let url = String::from_utf8(output.stdout).ok()?.trim().to_string();
     if url.is_empty() {
         return None;
@@ -119,13 +139,18 @@ fn get_browser_url(app_name: &str) -> Option<String> {
     Some(url)
 }
 
+fn escape_jxa_string(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
 fn jxa_url_script(app_name: &str) -> Option<String> {
     let lower = app_name.to_lowercase();
+    let escaped = escape_jxa_string(app_name);
 
     if lower == "safari" {
         return Some(format!(
             "Application(\"{}\").windows[0].currentTab.url()",
-            app_name,
+            escaped,
         ));
     }
 
@@ -142,7 +167,7 @@ fn jxa_url_script(app_name: &str) -> Option<String> {
     if is_chromium {
         return Some(format!(
             "Application(\"{}\").windows[0].activeTab.url()",
-            app_name,
+            escaped,
         ));
     }
 
