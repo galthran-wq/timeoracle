@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import delete
+from sqlalchemy import delete, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -62,6 +62,10 @@ class IntegrationRepositoryInterface(ABC):
 
     @abstractmethod
     async def delete_user_tokens(self, user_id: UUID, provider: str) -> None:
+        pass
+
+    @abstractmethod
+    async def update_credentials(self, user_id: UUID, provider: str, credentials: dict) -> None:
         pass
 
 
@@ -190,6 +194,21 @@ class IntegrationRepository(IntegrationRepositoryInterface):
                     IntegrationConnectTokenModel.user_id == user_id,
                     IntegrationConnectTokenModel.provider == provider,
                 )
+            )
+            await self.session.commit()
+        except Exception as e:
+            await self.session.rollback()
+            raise e
+
+    async def update_credentials(self, user_id: UUID, provider: str, credentials: dict) -> None:
+        try:
+            await self.session.execute(
+                update(UserIntegrationModel)
+                .where(
+                    UserIntegrationModel.user_id == user_id,
+                    UserIntegrationModel.provider == provider,
+                )
+                .values(credentials=credentials)
             )
             await self.session.commit()
         except Exception as e:

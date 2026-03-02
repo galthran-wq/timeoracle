@@ -1,13 +1,16 @@
+import asyncio
+import json
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.auth import get_current_user
 from src.core.config import settings
-from src.core.database import get_postgres_session
+from src.core.database import AsyncSessionLocal, get_postgres_session
 from src.models.postgres.users import UserModel
 from src.repositories.integrations import IntegrationRepository
 from src.schemas.integrations import (
@@ -23,6 +26,7 @@ router = APIRouter(prefix="/api/integrations", tags=["integrations"])
 
 AVAILABLE_PROVIDERS = ["telegram"]
 TOKEN_EXPIRY_SECONDS = 600
+telegram_background_tasks: set[asyncio.Task] = set()
 
 
 def get_integration_repository(
@@ -189,8 +193,100 @@ async def telegram_webhook(
         return {"ok": True}
 
     if text == "/start":
-        await tg.send_message(chat_id, "Welcome! To connect, use the link from your digitalgulag settings.")
+        await tg.send_message(chat_id, "Hi! Send me a message and I'll help you with your timeline.")
         return {"ok": True}
 
-    await tg.send_message(chat_id, "Bot features coming soon.")
+    integration = await repo.get_by_provider_and_external_id("telegram", telegram_user_id)
+    if not integration:
+        await tg.send_message(chat_id, "Please connect your account first from settings.")
+        return {"ok": True}
+
+    if text == "/new":
+        credentials = dict(integration.credentials or {})
+        credentials.pop("active_chat_id", None)
+        await repo.update_credentials(integration.user_id, "telegram", credentials)
+        await tg.send_message(chat_id, "Started a new conversation.")
+        return {"ok": True}
+
+    task = asyncio.create_task(
+        _handle_telegram_chat(integration.user_id, text, chat_id)
+    )
+    telegram_background_tasks.add(task)
+    task.add_done_callback(telegram_background_tasks.discard)
     return {"ok": True}
+
+
+async def _handle_telegram_chat(
+    user_id: UUID,
+    text: str,
+    tg_chat_id: int,
+):
+    from pydantic_ai.messages import ModelMessagesTypeAdapter
+    from src.agent.agent import agent, _build_deps
+    from src.repositories.chats import ChatRepository
+    from src.repositories.integrations import IntegrationRepository
+    from src.services.telegram import TelegramClient
+
+    tg = TelegramClient()
+    try:
+        await tg.send_chat_action(tg_chat_id, "typing")
+        async with AsyncSessionLocal() as session:
+            chat_repo = ChatRepository(session)
+            integration_repo = IntegrationRepository(session)
+            integration = await integration_repo.get_by_user_and_provider(user_id, "telegram")
+            if not integration:
+                return
+
+            effective_model = settings.chat_llm_model
+
+            active_chat_id = (integration.credentials or {}).get("active_chat_id")
+            chat = None
+            if active_chat_id:
+                chat = await chat_repo.get_by_id(UUID(active_chat_id))
+            if not chat:
+                chat = await chat_repo.create(
+                    user_id=integration.user_id,
+                    trigger="telegram",
+                    llm_model=effective_model,
+                )
+                credentials = dict(integration.credentials or {})
+                credentials["active_chat_id"] = str(chat.id)
+                await integration_repo.update_credentials(integration.user_id, "telegram", credentials)
+
+            message_history = None
+            if chat.messages:
+                raw = chat.messages
+                if isinstance(raw, str):
+                    raw = json.loads(raw)
+                if raw:
+                    message_history = ModelMessagesTypeAdapter.validate_python(raw)
+
+            deps = _build_deps(
+                user_id=integration.user_id,
+                session=session,
+                chat_id=chat.id,
+            )
+            result = await agent.run(
+                text,
+                deps=deps,
+                model=effective_model,
+                message_history=message_history,
+            )
+
+            messages_json = result.all_messages_json().decode()
+            await chat_repo.update_messages(
+                chat.id,
+                messages_json,
+                input_tokens=result.usage().request_tokens or 0,
+                output_tokens=result.usage().response_tokens or 0,
+            )
+
+        import telegramify_markdown
+        converted = telegramify_markdown.markdownify(result.data)
+        await tg.send_message(tg_chat_id, converted, parse_mode="MarkdownV2")
+    except Exception:
+        logger.exception("Telegram chat error for user %s", user_id)
+        try:
+            await tg.send_message(tg_chat_id, "Something went wrong. Please try again.")
+        except Exception:
+            logger.exception("Failed to send error message to Telegram")
