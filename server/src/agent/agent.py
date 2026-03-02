@@ -25,7 +25,12 @@ agent = Agent(deps_type=AgentDeps)
 
 @agent.system_prompt
 async def dynamic_system_prompt(ctx: RunContext[AgentDeps]) -> str:
-    return build_system_prompt(ctx.deps.target_date)
+    cfg = ctx.deps.user_session_config or {}
+    return build_system_prompt(
+        ctx.deps.target_date,
+        day_start_hour=cfg.get("day_start_hour", 0),
+        day_timezone=cfg.get("timezone", "UTC"),
+    )
 
 
 agent.tool(get_activity_sessions)

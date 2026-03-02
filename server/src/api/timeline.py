@@ -1,5 +1,5 @@
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from uuid import UUID
 
@@ -19,6 +19,7 @@ from src.schemas.timeline_entries import (
     TimelineEntryResponse,
     TimelineEntryUpdate,
 )
+from src.services.day_boundary import day_range_utc, week_range_utc, logical_date_for_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,12 @@ async def create_entry(
     current_user: UserModel = Depends(get_current_user),
     repo: TimelineEntryRepository = Depends(get_timeline_repository),
 ):
+    cfg = current_user.session_config or {}
+    day_start_hour = cfg.get("day_start_hour", 0)
+    day_tz = cfg.get("timezone", "UTC")
+    logical = logical_date_for_timestamp(body.start_time, day_start_hour, day_tz)
+    if body.date != logical:
+        body = body.model_copy(update={"date": logical})
     try:
         entry = await repo.create(current_user.id, body)
         return TimelineEntryResponse.model_validate(entry)
@@ -83,17 +90,23 @@ async def list_entries(
     current_user: UserModel = Depends(get_current_user),
     repo: TimelineEntryRepository = Depends(get_timeline_repository),
 ):
-    start_date = date
-    if date_range == DateRange.WEEK:
-        end_date = date + timedelta(days=6)
-    else:
-        end_date = date
+    cfg = current_user.session_config or {}
+    day_start_hour = cfg.get("day_start_hour", 0)
+    day_tz = cfg.get("timezone", "UTC")
 
-    entries = await repo.get_by_date_range(
-        current_user.id, start_date, end_date, limit, offset, category=category,
+    if date_range == DateRange.WEEK:
+        range_start, range_end = week_range_utc(date, day_start_hour, day_tz)
+    else:
+        range_start, range_end = day_range_utc(date, day_start_hour, day_tz)
+
+    range_start_aware = range_start.replace(tzinfo=timezone.utc)
+    range_end_aware = range_end.replace(tzinfo=timezone.utc)
+
+    entries = await repo.get_by_time_range(
+        current_user.id, range_start_aware, range_end_aware, limit, offset, category=category,
     )
-    total_count = await repo.count_by_date_range(
-        current_user.id, start_date, end_date, category=category,
+    total_count = await repo.count_by_time_range(
+        current_user.id, range_start_aware, range_end_aware, category=category,
     )
 
     return TimelineEntryListResponse(
@@ -119,15 +132,14 @@ async def update_entry(
     effective_end = body.end_time if body.end_time is not None else entry.end_time
     if effective_end <= effective_start:
         raise HTTPException(status_code=400, detail="end_time must be after start_time")
-    if body.date is not None or body.start_time is not None:
-        if body.date is not None:
-            effective_date = body.date
-        elif body.start_time is not None:
-            effective_date = body.start_time.date()
-        else:
-            effective_date = entry.date
-        if effective_date != effective_start.date():
-            raise HTTPException(status_code=400, detail="date must match the date of start_time")
+
+    cfg = current_user.session_config or {}
+    day_start_hour = cfg.get("day_start_hour", 0)
+    day_tz = cfg.get("timezone", "UTC")
+
+    if body.start_time is not None:
+        logical = logical_date_for_timestamp(effective_start, day_start_hour, day_tz)
+        body = body.model_copy(update={"date": logical})
 
     try:
         updated = await repo.update(entry, body)

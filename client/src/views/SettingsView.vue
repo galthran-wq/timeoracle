@@ -4,6 +4,7 @@ import {
   NCard,
   NSpace,
   NInputNumber,
+  NSelect,
   NButton,
   NMenu,
   NSpin,
@@ -19,10 +20,44 @@ import TelegramCard from '@/components/integrations/TelegramCard.vue'
 
 const message = useMessage()
 
+const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone
+
 const DEFAULTS: SessionConfig = {
   merge_gap_seconds: 300,
   min_session_seconds: 5,
   noise_threshold_seconds: 120,
+  day_start_hour: 0,
+  timezone: browserTz,
+}
+
+const timezoneOptions = Intl.supportedValuesOf('timeZone').map((tz) => ({ label: tz, value: tz }))
+
+function formatHour(h: number | null): string {
+  if (h === null) return ''
+  const suffix = h < 12 ? 'AM' : 'PM'
+  const display = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${display}:00 ${suffix}`
+}
+
+function parseHour(value: string): number {
+  const trimmed = value.trim()
+  if (!trimmed) return 0
+  const match = trimmed.match(/^(\d{1,2})(?::\d{2})?\s*(am|pm)?$/i)
+  if (!match) {
+    const fallback = Number.parseInt(trimmed, 10)
+    return Number.isNaN(fallback) ? 0 : Math.max(0, Math.min(23, fallback))
+  }
+  let hour = Number.parseInt(match[1], 10)
+  if (Number.isNaN(hour)) return 0
+  const meridiem = match[2]?.toLowerCase()
+  if (meridiem) {
+    if (hour === 12) {
+      hour = meridiem === 'am' ? 0 : 12
+    } else if (meridiem === 'pm') {
+      hour = hour + 12
+    }
+  }
+  return Math.max(0, Math.min(23, hour))
 }
 
 const activeTab = ref('sessions')
@@ -33,13 +68,18 @@ const config = ref<SessionConfig>({ ...DEFAULTS })
 
 const tabOptions: MenuOption[] = [
   { label: 'Activity Sessions', key: 'sessions' },
+  { label: 'Day Boundary', key: 'day-boundary' },
   { label: 'Integrations', key: 'integrations' },
 ]
 
 async function loadConfig() {
   loading.value = true
   try {
-    config.value = await getSessionConfig()
+    const loaded = await getSessionConfig()
+    if (!loaded.timezone) {
+      loaded.timezone = browserTz
+    }
+    config.value = loaded
   } catch {
     message.error('Failed to load session config')
   } finally {
@@ -141,6 +181,54 @@ onMounted(loadConfig)
               <NSpace :size="12">
                 <NButton type="primary" :loading="saving" @click="saveConfig">Save</NButton>
                 <NButton @click="resetDefaults">Reset to defaults</NButton>
+              </NSpace>
+            </NSpace>
+          </NCard>
+        </template>
+        <template v-else-if="activeTab === 'day-boundary'">
+          <NCard title="Day Boundary">
+            <NSpace vertical :size="24">
+              <div class="setting-field">
+                <div class="setting-label">
+                  Day ends at
+                  <NTooltip>
+                    <template #trigger>
+                      <NIcon :size="16" class="info-icon"><InformationCircleOutline /></NIcon>
+                    </template>
+                    Late-night activity before this hour counts as the previous day.
+                  </NTooltip>
+                </div>
+                <NInputNumber
+                  v-model:value="config.day_start_hour"
+                  :min="0"
+                  :max="23"
+                  :step="1"
+                  style="width: 200px"
+                  :format="formatHour"
+                  :parse="parseHour"
+                />
+              </div>
+
+              <div class="setting-field">
+                <div class="setting-label">
+                  Timezone
+                  <NTooltip>
+                    <template #trigger>
+                      <NIcon :size="16" class="info-icon"><InformationCircleOutline /></NIcon>
+                    </template>
+                    Your local timezone, used to determine when the day boundary occurs.
+                  </NTooltip>
+                </div>
+                <NSelect
+                  v-model:value="config.timezone"
+                  :options="timezoneOptions"
+                  filterable
+                  style="width: 300px"
+                />
+              </div>
+
+              <NSpace :size="12">
+                <NButton type="primary" :loading="saving" @click="saveConfig">Save</NButton>
               </NSpace>
             </NSpace>
           </NCard>

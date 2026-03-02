@@ -3,9 +3,18 @@ import { defineStore } from 'pinia'
 import { format } from 'date-fns'
 import * as api from '@/api/timeline'
 import type { TimelineEntry, TimelineEntryCreate, TimelineEntryUpdate } from '@/types/timeline'
+import { useAuthStore } from './auth'
+import { getLogicalToday } from '@/utils/dayBoundary'
+
+function computeToday(): string {
+  const auth = useAuthStore()
+  const cfg = auth.user?.session_config
+  if (cfg) return getLogicalToday(cfg.day_start_hour, cfg.timezone)
+  return format(new Date(), 'yyyy-MM-dd')
+}
 
 export const useTimelineStore = defineStore('timeline', () => {
-  const selectedDate = ref(format(new Date(), 'yyyy-MM-dd'))
+  const selectedDate = ref(computeToday())
   const rangeStart = ref(selectedDate.value)
   const viewMode = ref<'day' | 'week'>('day')
   const entries = ref<TimelineEntry[]>([])

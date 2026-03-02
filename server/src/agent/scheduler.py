@@ -1,11 +1,12 @@
 import asyncio
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 
 from src.agent.agent import generate_timeline
 from src.core.config import settings
 from src.core.database import AsyncSessionLocal
 from src.repositories.users import UserRepository
+from src.services.day_boundary import logical_date_for_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +32,15 @@ async def cron_generation_loop():
                     continue
 
                 try:
+                    day_start_hour = user_cfg.get("day_start_hour", 0)
+                    day_tz = user_cfg.get("timezone", "UTC")
+                    target = logical_date_for_timestamp(
+                        datetime.now(timezone.utc), day_start_hour, day_tz,
+                    )
                     async with AsyncSessionLocal() as session:
                         await generate_timeline(
                             user_id=user.id,
-                            target_date=date.today(),
+                            target_date=target,
                             session=session,
                             user_session_config=user.session_config,
                         )

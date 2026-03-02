@@ -13,6 +13,7 @@ from src.schemas.activity_sessions import (
     ActivitySessionResponse,
 )
 from src.services.activity_session_generator import compute_sessions
+from src.services.day_boundary import day_range_utc, week_range_utc
 from src.services.icon_resolver import resolve_session_icon
 
 router = APIRouter(prefix="/api/activity/sessions", tags=["activity-sessions"])
@@ -35,14 +36,20 @@ async def list_sessions(
     current_user: UserModel = Depends(get_current_user),
     event_repo: ActivityEventRepository = Depends(_get_event_repo),
 ):
-    start_date = date
-    end_date = date + timedelta(days=6) if range == "week" else date
+    cfg = current_user.session_config or {}
+    day_start_hour = cfg.get("day_start_hour", 0)
+    day_tz = cfg.get("timezone", "UTC")
 
-    day_start = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
-    day_end = datetime.combine(end_date, time.max, tzinfo=timezone.utc)
+    if range == "week":
+        range_start, range_end = week_range_utc(date, day_start_hour, day_tz)
+    else:
+        range_start, range_end = day_range_utc(date, day_start_hour, day_tz)
+
+    range_start_aware = range_start.replace(tzinfo=timezone.utc)
+    range_end_aware = range_end.replace(tzinfo=timezone.utc)
 
     events = await event_repo.get_by_time_range(
-        current_user.id, day_start, day_end, limit=100_000, offset=0,
+        current_user.id, range_start_aware, range_end_aware, limit=100_000, offset=0,
     )
 
     if events:
@@ -53,13 +60,14 @@ async def list_sessions(
     else:
         cap_time = datetime.now(timezone.utc)
 
-    cfg = current_user.session_config or {}
     sessions = compute_sessions(
         events,
         cap_time,
         merge_gap_seconds=cfg.get("merge_gap_seconds", 300),
         min_session_seconds=cfg.get("min_session_seconds", 5),
         noise_threshold_seconds=cfg.get("noise_threshold_seconds", 120),
+        day_start_hour=day_start_hour,
+        day_timezone=day_tz,
     )
 
     total_count = len(sessions)

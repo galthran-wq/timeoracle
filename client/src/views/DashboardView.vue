@@ -16,10 +16,12 @@ import { useRouter } from 'vue-router'
 import { format } from 'date-fns'
 import { formatDistanceToNow } from 'date-fns'
 import { useActivityStore } from '@/stores/activity'
+import { useAuthStore } from '@/stores/auth'
 import { listEntries } from '@/api/timeline'
 import { listSessions } from '@/api/activity'
 import { useDayAnalytics } from '@/composables/useDayAnalytics'
 import { SESSION_PALETTE, CATEGORY_COLORS } from '@/constants/palette'
+import { getLogicalToday } from '@/utils/dayBoundary'
 import type { TimelineEntry } from '@/types/timeline'
 import type { ActivitySession } from '@/types/activity'
 
@@ -71,7 +73,9 @@ function categoryColor(index: number): string {
 }
 
 onMounted(async () => {
-  const today = format(new Date(), 'yyyy-MM-dd')
+  const authStore = useAuthStore()
+  const cfg = authStore.user?.session_config
+  const today = cfg ? getLogicalToday(cfg.day_start_hour, cfg.timezone) : format(new Date(), 'yyyy-MM-dd')
   await Promise.all([
     activityStore.fetchStatus(),
     listEntries({ date: today }).then((res) => {

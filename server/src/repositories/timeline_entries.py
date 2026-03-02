@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
@@ -42,6 +42,20 @@ class TimelineEntryRepositoryInterface(ABC):
 
     @abstractmethod
     async def delete(self, entry: TimelineEntryModel) -> None:
+        pass
+
+    @abstractmethod
+    async def get_by_time_range(
+        self, user_id: UUID, start_dt: datetime, end_dt: datetime,
+        limit: int, offset: int, category: Optional[str] = None,
+    ) -> list[TimelineEntryModel]:
+        pass
+
+    @abstractmethod
+    async def count_by_time_range(
+        self, user_id: UUID, start_dt: datetime, end_dt: datetime,
+        category: Optional[str] = None,
+    ) -> int:
         pass
 
     @abstractmethod
@@ -123,14 +137,51 @@ class TimelineEntryRepository(TimelineEntryRepositoryInterface):
         result = await self.session.execute(query)
         return result.scalar_one()
 
+    async def get_by_time_range(
+        self, user_id: UUID, start_dt: datetime, end_dt: datetime,
+        limit: int, offset: int, category: Optional[str] = None,
+    ) -> list[TimelineEntryModel]:
+        query = (
+            select(TimelineEntryModel)
+            .where(
+                TimelineEntryModel.user_id == user_id,
+                TimelineEntryModel.start_time >= start_dt,
+                TimelineEntryModel.start_time < end_dt,
+            )
+            .order_by(TimelineEntryModel.start_time.asc())
+            .limit(limit)
+            .offset(offset)
+        )
+        if category is not None:
+            query = query.where(TimelineEntryModel.category == category)
+
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def count_by_time_range(
+        self, user_id: UUID, start_dt: datetime, end_dt: datetime,
+        category: Optional[str] = None,
+    ) -> int:
+        query = (
+            select(func.count())
+            .select_from(TimelineEntryModel)
+            .where(
+                TimelineEntryModel.user_id == user_id,
+                TimelineEntryModel.start_time >= start_dt,
+                TimelineEntryModel.start_time < end_dt,
+            )
+        )
+        if category is not None:
+            query = query.where(TimelineEntryModel.category == category)
+
+        result = await self.session.execute(query)
+        return result.scalar_one()
+
     async def update(self, entry: TimelineEntryModel, updates: TimelineEntryUpdate) -> TimelineEntryModel:
         try:
             update_data = updates.model_dump(exclude_unset=True)
             for field, value in update_data.items():
                 setattr(entry, field, value)
-
-            if "start_time" in update_data and "date" not in update_data:
-                entry.date = update_data["start_time"].date()
 
             entry.edited_by_user = True
 

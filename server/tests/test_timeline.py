@@ -76,7 +76,7 @@ class TestCreateEntry:
         )
         assert resp.status_code == 422
 
-    async def test_reject_date_mismatch(self, authed_client: httpx.AsyncClient):
+    async def test_date_mismatch_auto_corrected(self, authed_client: httpx.AsyncClient):
         now = datetime.now(timezone.utc).replace(microsecond=0)
         start = now.replace(hour=14, minute=0, second=0)
         end = now.replace(hour=15, minute=0, second=0)
@@ -89,7 +89,8 @@ class TestCreateEntry:
                 end_time=end.isoformat(),
             ),
         )
-        assert resp.status_code == 422
+        assert resp.status_code == 201
+        assert resp.json()["date"] == start.date().isoformat()
 
     async def test_reject_bad_color(self, authed_client: httpx.AsyncClient):
         resp = await authed_client.post(

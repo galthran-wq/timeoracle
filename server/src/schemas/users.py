@@ -1,7 +1,14 @@
-from pydantic import BaseModel, EmailStr, Field
+from zoneinfo import ZoneInfo
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from uuid import UUID
 from datetime import datetime
 from typing import Optional, Union
+
+
+def _validate_timezone(v: str) -> str:
+    ZoneInfo(v)
+    return v
 
 
 class SessionConfig(BaseModel):
@@ -10,6 +17,13 @@ class SessionConfig(BaseModel):
     noise_threshold_seconds: int = Field(default=120, ge=0, le=3600)
     llm_model: Optional[str] = None
     enable_cron_generation: Optional[bool] = None
+    day_start_hour: int = Field(default=0, ge=0, le=23)
+    timezone: str = Field(default="UTC")
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, v: str) -> str:
+        return _validate_timezone(v)
 
 
 class SessionConfigUpdate(BaseModel):
@@ -18,6 +32,15 @@ class SessionConfigUpdate(BaseModel):
     noise_threshold_seconds: Optional[int] = Field(default=None, ge=0, le=3600)
     llm_model: Optional[str] = None
     enable_cron_generation: Optional[bool] = None
+    day_start_hour: Optional[int] = Field(default=None, ge=0, le=23)
+    timezone: Optional[str] = None
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return _validate_timezone(v)
+        return v
 
 
 class UserResponse(BaseModel):

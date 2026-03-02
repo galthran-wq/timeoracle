@@ -12,9 +12,15 @@ CATEGORIES = {
 }
 
 
-def build_system_prompt(target_date: date | None = None) -> str:
+def build_system_prompt(
+    target_date: date | None = None,
+    day_start_hour: int = 0,
+    day_timezone: str = "UTC",
+) -> str:
     today = target_date or date.today()
     date_context = f"\nToday's date: {today.isoformat()} ({today.strftime('%A')})"
+    if day_start_hour != 0:
+        date_context += f"\nDay boundary: {day_start_hour}:00 {day_timezone} — activity before this hour belongs to the previous logical day."
 
     category_list = "\n".join(
         f"  - {name}: {color}" for name, color in CATEGORIES.items()

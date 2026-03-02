@@ -54,11 +54,6 @@ class TimelineEntryCreate(BaseModel):
             raise ValueError("end_time must be after start_time")
         return self
 
-    @model_validator(mode="after")
-    def date_matches_start(self):
-        if self.start_time.date() != self.date:
-            raise ValueError("date must match the date of start_time")
-        return self
 
 
 class TimelineEntryUpdate(BaseModel):

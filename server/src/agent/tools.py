@@ -7,6 +7,7 @@ from pydantic_ai import RunContext
 from src.agent.deps import AgentDeps
 from src.schemas.timeline_entries import TimelineEntryBulkItem
 from src.services.activity_session_generator import compute_sessions
+from src.services.day_boundary import day_range_utc, logical_date_for_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -37,25 +38,34 @@ async def get_activity_sessions(ctx: RunContext[AgentDeps], target_date: str) ->
     except ValueError:
         return [{"error": f"Invalid date format: {target_date}. Use YYYY-MM-DD."}]
 
-    day_start = datetime.combine(d, time.min, tzinfo=timezone.utc)
-    day_end = datetime.combine(d, time.max, tzinfo=timezone.utc)
+    cfg = ctx.deps.user_session_config or {}
+    day_start_hour = cfg.get("day_start_hour", 0)
+    day_tz = cfg.get("timezone", "UTC")
+
+    range_start, range_end = day_range_utc(d, day_start_hour, day_tz)
+    range_start_aware = range_start.replace(tzinfo=timezone.utc)
+    range_end_aware = range_end.replace(tzinfo=timezone.utc)
 
     events = await ctx.deps.activity_repo.get_by_time_range(
-        ctx.deps.user_id, day_start, day_end, limit=100_000, offset=0,
+        ctx.deps.user_id, range_start_aware, range_end_aware, limit=100_000, offset=0,
     )
 
     if not events:
         await _emit(ctx, "tool_result", {"name": "get_activity_sessions", "summary": "No activity data found"})
         return []
 
-    cap_time = min(datetime.now(timezone.utc), day_end)
-    cfg = ctx.deps.user_session_config or {}
+    latest_day_end = datetime.combine(
+        events[-1].timestamp.date(), time.max, tzinfo=timezone.utc,
+    )
+    cap_time = min(datetime.now(timezone.utc), latest_day_end)
     sessions = compute_sessions(
         events,
         cap_time,
         merge_gap_seconds=cfg.get("merge_gap_seconds", 300),
         min_session_seconds=cfg.get("min_session_seconds", 5),
         noise_threshold_seconds=cfg.get("noise_threshold_seconds", 120),
+        day_start_hour=day_start_hour,
+        day_timezone=day_tz,
     )
 
     result = []
@@ -81,8 +91,16 @@ async def get_existing_timeline(ctx: RunContext[AgentDeps], target_date: str) ->
     except ValueError:
         return [{"error": f"Invalid date format: {target_date}. Use YYYY-MM-DD."}]
 
-    entries = await ctx.deps.timeline_repo.get_by_date_range(
-        ctx.deps.user_id, d, d, limit=500, offset=0,
+    cfg = ctx.deps.user_session_config or {}
+    day_start_hour = cfg.get("day_start_hour", 0)
+    day_tz = cfg.get("timezone", "UTC")
+
+    range_start, range_end = day_range_utc(d, day_start_hour, day_tz)
+    range_start_aware = range_start.replace(tzinfo=timezone.utc)
+    range_end_aware = range_end.replace(tzinfo=timezone.utc)
+
+    entries = await ctx.deps.timeline_repo.get_by_time_range(
+        ctx.deps.user_id, range_start_aware, range_end_aware, limit=500, offset=0,
     )
 
     result = []
@@ -106,12 +124,16 @@ async def save_timeline_entries(ctx: RunContext[AgentDeps], entries: list[Timeli
 
     from uuid import UUID
 
+    cfg = ctx.deps.user_session_config or {}
+    day_start_hour = cfg.get("day_start_hour", 0)
+    day_tz = cfg.get("timezone", "UTC")
+
     bulk_items = []
     for entry in entries:
         try:
-            entry_date = date.fromisoformat(entry.date)
             start_time = datetime.fromisoformat(entry.start_time)
             end_time = datetime.fromisoformat(entry.end_time)
+            entry_date = logical_date_for_timestamp(start_time, day_start_hour, day_tz)
 
             entry_id = UUID(entry.id) if entry.id else None
 

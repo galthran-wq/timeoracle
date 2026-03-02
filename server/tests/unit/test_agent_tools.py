@@ -47,7 +47,7 @@ def _make_ctx(
     activity_repo.get_by_time_range = AsyncMock(return_value=activity_events or [])
 
     timeline_repo = MagicMock()
-    timeline_repo.get_by_date_range = AsyncMock(return_value=timeline_entries or [])
+    timeline_repo.get_by_time_range = AsyncMock(return_value=timeline_entries or [])
     timeline_repo.bulk_upsert = AsyncMock(return_value=bulk_upsert_result)
 
     deps = AgentDeps(
@@ -115,8 +115,8 @@ class TestGetActivitySessions:
         call_args = ctx.deps.activity_repo.get_by_time_range.call_args
         start = call_args[0][1]
         end = call_args[0][2]
-        assert start.date() == date(2026, 3, 1)
-        assert end.date() == date(2026, 3, 1)
+        assert start == datetime(2026, 3, 1, 0, 0, tzinfo=timezone.utc)
+        assert end == datetime(2026, 3, 2, 0, 0, tzinfo=timezone.utc)
 
     async def test_emits_events_to_queue(self):
         import asyncio
