@@ -233,6 +233,46 @@ body {
   opacity: 0.6;
 }
 
+/* Stacked bar (trends) */
+.trend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--to-space-sm);
+  margin-bottom: var(--to-space-sm);
+}
+
+.trend-label {
+  width: 36px;
+  font-size: var(--to-text-sm);
+  flex-shrink: 0;
+}
+
+.stacked-track {
+  flex: 1;
+  height: 22px;
+  background: var(--to-bar-track);
+  border-radius: var(--to-radius-sm);
+  overflow: hidden;
+  display: flex;
+}
+
+.stacked-seg {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.stacked-seg:first-child {
+  border-radius: var(--to-radius-sm) 0 0 var(--to-radius-sm);
+}
+
+.stacked-seg:last-child {
+  border-radius: 0 var(--to-radius-sm) var(--to-radius-sm) 0;
+}
+
+.stacked-seg:only-child {
+  border-radius: var(--to-radius-sm);
+}
+
 /* Color dot */
 .color-dot {
   width: 10px;

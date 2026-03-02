@@ -5,6 +5,7 @@ from .chats import ChatModel
 from .user_integrations import UserIntegrationModel
 from .integration_connect_tokens import IntegrationConnectTokenModel
 from .agent_memories import AgentMemoryModel
+from .day_summaries import DaySummaryModel
 
 __all__ = [
     "UserModel",
@@ -14,4 +15,5 @@ __all__ = [
     "UserIntegrationModel",
     "IntegrationConnectTokenModel",
     "AgentMemoryModel",
+    "DaySummaryModel",
 ]

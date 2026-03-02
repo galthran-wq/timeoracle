@@ -13,17 +13,19 @@ import {
   NGridItem,
 } from 'naive-ui'
 import { useRouter } from 'vue-router'
-import { format } from 'date-fns'
+import { format, subDays } from 'date-fns'
 import { formatDistanceToNow } from 'date-fns'
 import { useActivityStore } from '@/stores/activity'
 import { useAuthStore } from '@/stores/auth'
 import { listEntries } from '@/api/timeline'
 import { listSessions } from '@/api/activity'
+import { getDaySummary, getDaySummaryTrends } from '@/api/daySummary'
 import { useDayAnalytics } from '@/composables/useDayAnalytics'
 import { SESSION_PALETTE, CATEGORY_COLORS } from '@/constants/palette'
 import { getLogicalToday } from '@/utils/dayBoundary'
 import type { TimelineEntry } from '@/types/timeline'
 import type { ActivitySession } from '@/types/activity'
+import type { DaySummary } from '@/types/daySummary'
 
 const router = useRouter()
 const activityStore = useActivityStore()
@@ -32,6 +34,9 @@ const todaySessions = ref<ActivitySession[]>([])
 const loading = ref(true)
 const showAllEntries = ref(false)
 const showAllSessions = ref(false)
+const todaySummary = ref<DaySummary | null>(null)
+const yesterdaySummary = ref<DaySummary | null>(null)
+const trendSummaries = ref<DaySummary[]>([])
 
 const {
   totalActiveMinutes,
@@ -62,6 +67,26 @@ const displayedSessions = computed(() =>
   showAllSessions.value ? todaySessions.value : todaySessions.value.slice(0, 5)
 )
 
+function focusScoreColor(score: number | null): string {
+  if (score === null) return 'var(--to-text-secondary)'
+  if (score > 0.6) return '#10B981'
+  if (score >= 0.3) return '#F59E0B'
+  return '#EF4444'
+}
+
+function formatScore(score: number | null): string {
+  if (score === null) return '—'
+  return Math.round(score * 100) + '%'
+}
+
+const maxTrendMinutes = computed(() => {
+  let max = 1
+  for (const s of trendSummaries.value) {
+    if (s.total_active_minutes > max) max = s.total_active_minutes
+  }
+  return max
+})
+
 function appColor(app: string): string {
   const apps = [...new Set(todaySessions.value.map((s) => s.app_name))]
   const idx = apps.indexOf(app)
@@ -72,10 +97,18 @@ function categoryColor(index: number): string {
   return CATEGORY_COLORS[index % CATEGORY_COLORS.length]
 }
 
+function trendDayLabel(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  return format(d, 'EEE')
+}
+
 onMounted(async () => {
   const authStore = useAuthStore()
   const cfg = authStore.user?.session_config
   const today = cfg ? getLogicalToday(cfg.day_start_hour, cfg.timezone) : format(new Date(), 'yyyy-MM-dd')
+  const yesterdayDate = format(subDays(new Date(today + 'T00:00:00'), 1), 'yyyy-MM-dd')
+  const weekAgo = format(subDays(new Date(today + 'T00:00:00'), 6), 'yyyy-MM-dd')
+
   await Promise.all([
     activityStore.fetchStatus(),
     listEntries({ date: today }).then((res) => {
@@ -84,6 +117,9 @@ onMounted(async () => {
     listSessions({ date: today, limit: 200 }).then((res) => {
       todaySessions.value = res.sessions
     }),
+    getDaySummary(today).then((s) => { todaySummary.value = s }).catch(() => {}),
+    getDaySummary(yesterdayDate).then((s) => { yesterdaySummary.value = s }).catch(() => {}),
+    getDaySummaryTrends(weekAgo, today).then((r) => { trendSummaries.value = r.summaries }).catch(() => {}),
   ])
   loading.value = false
 })
@@ -113,6 +149,62 @@ onMounted(async () => {
           <div class="stat-value" style="font-size: 20px">{{ topApp ?? '—' }}</div>
         </div>
       </div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px">
+        <div class="stat-card" :style="{ borderLeftColor: focusScoreColor(todaySummary?.focus_score ?? null) }">
+          <div class="stat-label">Focus Score</div>
+          <div class="stat-value" :style="{ color: focusScoreColor(todaySummary?.focus_score ?? null) }">
+            {{ formatScore(todaySummary?.focus_score ?? null) }}
+          </div>
+        </div>
+        <div class="stat-card" style="border-left-color: #EF4444">
+          <div class="stat-label">Distraction</div>
+          <div class="stat-value">{{ formatScore(todaySummary?.distraction_score ?? null) }}</div>
+        </div>
+        <div class="stat-card" style="border-left-color: #8B5CF6">
+          <div class="stat-label">Longest Focus</div>
+          <div class="stat-value" style="font-size: 20px">
+            {{ todaySummary ? formatMinutes(todaySummary.longest_focus_minutes) : '—' }}
+          </div>
+        </div>
+        <div class="stat-card" style="border-left-color: #F59E0B">
+          <div class="stat-label">Context Switches</div>
+          <div class="stat-value">{{ todaySummary?.context_switches ?? '—' }}</div>
+        </div>
+      </div>
+
+      <NGrid :cols="2" :x-gap="16" :y-gap="16" v-if="yesterdaySummary?.narrative || trendSummaries.length">
+        <NGridItem v-if="yesterdaySummary?.narrative">
+          <NCard title="Yesterday's Summary" size="small">
+            <NText>{{ yesterdaySummary.narrative }}</NText>
+          </NCard>
+        </NGridItem>
+        <NGridItem :span="yesterdaySummary?.narrative ? 1 : 2" v-if="trendSummaries.length">
+          <NCard title="7-Day Trends" size="small">
+            <div v-for="s in trendSummaries" :key="s.date" class="trend-row">
+              <NText class="trend-label">{{ trendDayLabel(s.date) }}</NText>
+              <div class="stacked-track">
+                <div
+                  v-if="s.productive_minutes > 0"
+                  class="stacked-seg"
+                  :style="{ width: (s.productive_minutes / maxTrendMinutes * 100) + '%', background: '#10B981' }"
+                />
+                <div
+                  v-if="s.neutral_minutes > 0"
+                  class="stacked-seg"
+                  :style="{ width: (s.neutral_minutes / maxTrendMinutes * 100) + '%', background: '#6B7280' }"
+                />
+                <div
+                  v-if="s.distraction_minutes > 0"
+                  class="stacked-seg"
+                  :style="{ width: (s.distraction_minutes / maxTrendMinutes * 100) + '%', background: '#EF4444' }"
+                />
+              </div>
+              <NText depth="3" class="bar-value">{{ formatScore(s.focus_score) }}</NText>
+            </div>
+          </NCard>
+        </NGridItem>
+      </NGrid>
 
       <NGrid :cols="2" :x-gap="16" :y-gap="16">
         <NGridItem>

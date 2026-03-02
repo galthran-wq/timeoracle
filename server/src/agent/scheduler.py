@@ -1,12 +1,13 @@
 import asyncio
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from src.agent.agent import generate_timeline
 from src.core.config import settings
 from src.core.database import AsyncSessionLocal
 from src.repositories.users import UserRepository
 from src.services.day_boundary import logical_date_for_timestamp
+from src.services.day_summary_service import generate_day_summary
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,25 @@ async def cron_generation_loop():
                             user_session_config=user.session_config,
                         )
                     logger.info("Generated timeline for user %s", user.id)
+
+                    async with AsyncSessionLocal() as session:
+                        await generate_day_summary(
+                            user_id=user.id,
+                            target_date=target,
+                            session=session,
+                            user_session_config=user.session_config,
+                            is_partial=True,
+                        )
+
+                    yesterday = target - timedelta(days=1)
+                    async with AsyncSessionLocal() as session:
+                        await generate_day_summary(
+                            user_id=user.id,
+                            target_date=yesterday,
+                            session=session,
+                            user_session_config=user.session_config,
+                            is_partial=False,
+                        )
                 except Exception:
                     logger.exception("Failed to generate timeline for user %s", user.id)
 

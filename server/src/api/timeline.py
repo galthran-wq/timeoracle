@@ -21,6 +21,7 @@ from src.schemas.timeline_entries import (
     TimelineEntryUpdate,
 )
 from src.services.day_boundary import day_range_utc, week_range_utc, logical_date_for_timestamp
+from src.services.day_summary_service import generate_day_summary
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +175,18 @@ async def update_entry(
                 except Exception:
                     logger.warning("Failed to create correction memory for entry %s", entry_id)
 
+        try:
+            entry_date = logical_date_for_timestamp(updated.start_time, day_start_hour, day_tz)
+            await generate_day_summary(
+                user_id=current_user.id,
+                target_date=entry_date,
+                session=session,
+                user_session_config=current_user.session_config,
+                is_partial=True,
+            )
+        except Exception:
+            logger.warning("Failed to regenerate day summary after editing entry %s", entry_id)
+
         return TimelineEntryResponse.model_validate(updated)
     except HTTPException:
         raise
@@ -187,13 +200,30 @@ async def delete_entry(
     entry_id: UUID,
     current_user: UserModel = Depends(get_current_user),
     repo: TimelineEntryRepository = Depends(get_timeline_repository),
+    session: AsyncSession = Depends(get_postgres_session),
 ):
     entry = await repo.get_by_id(entry_id)
     if not entry or entry.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Timeline entry not found")
+
+    cfg = current_user.session_config or {}
+    day_start_hour = cfg.get("day_start_hour", 0)
+    day_tz = cfg.get("timezone", "UTC")
+    entry_date = logical_date_for_timestamp(entry.start_time, day_start_hour, day_tz)
 
     try:
         await repo.delete(entry)
     except Exception:
         logger.exception("Failed to delete timeline entry %s", entry_id)
         raise HTTPException(status_code=500, detail="Internal server error")
+
+    try:
+        await generate_day_summary(
+            user_id=current_user.id,
+            target_date=entry_date,
+            session=session,
+            user_session_config=current_user.session_config,
+            is_partial=True,
+        )
+    except Exception:
+        logger.warning("Failed to regenerate day summary after deleting entry %s", entry_id)
