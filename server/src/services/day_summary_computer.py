@@ -98,7 +98,7 @@ def _compute_longest_focus(entries: list, user_categories: dict | None) -> float
         else:
             gap = (entry.start_time - streak_end).total_seconds() / 60.0
             if gap <= FOCUS_GAP_TOLERANCE_MINUTES:
-                streak_end = entry.end_time
+                streak_end = max(streak_end, entry.end_time)
             else:
                 duration = (streak_end - streak_start).total_seconds() / 60.0
                 max_streak = max(max_streak, duration)

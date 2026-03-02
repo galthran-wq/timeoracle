@@ -1,5 +1,5 @@
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,7 @@ from src.core.database import get_postgres_session
 from src.models.postgres.users import UserModel
 from src.repositories.day_summaries import DaySummaryRepository
 from src.schemas.day_summaries import DaySummaryResponse, DaySummaryTrendsResponse
+from src.services.day_boundary import logical_date_for_timestamp
 from src.services.day_summary_service import generate_day_summary
 
 logger = logging.getLogger(__name__)
@@ -63,8 +64,10 @@ async def force_generate_day_summary(
     session: AsyncSession = Depends(get_postgres_session),
 ):
     cfg = current_user.session_config or {}
-    today = date.today()
-    is_partial = target_date >= today
+    day_start_hour = cfg.get("day_start_hour", 0)
+    day_tz = cfg.get("timezone", "UTC")
+    logical_today = logical_date_for_timestamp(datetime.now(timezone.utc), day_start_hour, day_tz)
+    is_partial = target_date >= logical_today
 
     try:
         summary = await generate_day_summary(

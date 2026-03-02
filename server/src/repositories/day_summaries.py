@@ -27,6 +27,10 @@ class DaySummaryRepositoryInterface(ABC):
     async def upsert(self, user_id: UUID, target_date: date, **metrics) -> DaySummaryModel:
         pass
 
+    @abstractmethod
+    async def delete(self, summary: DaySummaryModel) -> None:
+        pass
+
 
 class DaySummaryRepository(DaySummaryRepositoryInterface):
     def __init__(self, session: AsyncSession):
@@ -70,6 +74,14 @@ class DaySummaryRepository(DaySummaryRepositoryInterface):
             await self.session.commit()
             await self.session.refresh(summary)
             return summary
+        except Exception:
+            await self.session.rollback()
+            raise
+
+    async def delete(self, summary: DaySummaryModel) -> None:
+        try:
+            await self.session.delete(summary)
+            await self.session.commit()
         except Exception:
             await self.session.rollback()
             raise
