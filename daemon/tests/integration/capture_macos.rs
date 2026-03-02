@@ -5,7 +5,7 @@ mod macos_tests {
 
     #[test]
     fn test_macos_source_creation() {
-        let _source = MacOSSource::new();
+        let _source = MacOSSource::new(false);
     }
 
     #[test]
@@ -15,7 +15,7 @@ mod macos_tests {
             return;
         }
 
-        let source = MacOSSource::new();
+        let source = MacOSSource::new(false);
         let result = source.get_active_window();
         assert!(
             result.is_ok(),
