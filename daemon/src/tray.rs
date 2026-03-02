@@ -181,10 +181,6 @@ fn poll_and_update(state: &mut TrayState) -> bool {
     true
 }
 
-// ---------------------------------------------------------------------------
-// macOS login window
-// ---------------------------------------------------------------------------
-
 #[cfg(target_os = "macos")]
 mod macos_login {
     use crate::config::Config;
@@ -406,10 +402,6 @@ mod macos_login {
     }
 }
 
-// ---------------------------------------------------------------------------
-// macOS stats window
-// ---------------------------------------------------------------------------
-
 #[cfg(target_os = "macos")]
 mod macos_stats {
     use crate::engine::DaemonStatus;
@@ -544,10 +536,6 @@ mod macos_stats {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Linux login window
-// ---------------------------------------------------------------------------
 
 #[cfg(target_os = "linux")]
 mod linux_login {
@@ -694,10 +682,6 @@ mod linux_login {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Linux stats window
-// ---------------------------------------------------------------------------
-
 #[cfg(target_os = "linux")]
 mod linux_stats {
     use crate::engine::DaemonStatus;
@@ -792,10 +776,6 @@ mod linux_stats {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Linux
-// ---------------------------------------------------------------------------
-
 #[cfg(target_os = "linux")]
 pub fn run(config: Config) -> anyhow::Result<()> {
     gtk::init().map_err(|e| anyhow::anyhow!("GTK init failed: {e}"))?;
@@ -823,10 +803,6 @@ pub fn run(config: Config) -> anyhow::Result<()> {
     gtk::main();
     Ok(())
 }
-
-// ---------------------------------------------------------------------------
-// macOS
-// ---------------------------------------------------------------------------
 
 #[cfg(target_os = "macos")]
 pub fn run(config: Config) -> anyhow::Result<()> {
@@ -877,10 +853,6 @@ pub fn run(config: Config) -> anyhow::Result<()> {
 
     Ok(())
 }
-
-// ---------------------------------------------------------------------------
-// Unsupported platforms
-// ---------------------------------------------------------------------------
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
 pub fn run(_config: Config) -> anyhow::Result<()> {

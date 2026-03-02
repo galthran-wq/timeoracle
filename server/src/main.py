@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     if settings.enable_logfire:
         import logfire
-        logfire.configure()
+        logfire.configure(token=settings.logfire_token)
         logfire.instrument_pydantic_ai()
         logger.info("Logfire instrumentation enabled")
 

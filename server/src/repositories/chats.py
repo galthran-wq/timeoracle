@@ -1,11 +1,10 @@
 import json
 import logging
 from abc import ABC, abstractmethod
-from datetime import date
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.postgres.chats import ChatModel
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 class ChatRepositoryInterface(ABC):
     @abstractmethod
     async def create(
-        self, user_id: UUID, target_date: date | None, trigger: str, llm_model: str,
+        self, user_id: UUID, trigger: str, llm_model: str,
     ) -> ChatModel:
         pass
 
@@ -25,7 +24,9 @@ class ChatRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_active_chat(self, user_id: UUID, target_date: date) -> Optional[ChatModel]:
+    async def list_for_user(
+        self, user_id: UUID, limit: int = 20, offset: int = 0,
+    ) -> tuple[list[ChatModel], int]:
         pass
 
     @abstractmethod
@@ -41,12 +42,11 @@ class ChatRepository(ChatRepositoryInterface):
         self.session = session
 
     async def create(
-        self, user_id: UUID, target_date: date | None, trigger: str, llm_model: str,
+        self, user_id: UUID, trigger: str, llm_model: str,
     ) -> ChatModel:
         try:
             chat = ChatModel(
                 user_id=user_id,
-                date=target_date,
                 trigger=trigger,
                 llm_model=llm_model,
             )
@@ -64,19 +64,23 @@ class ChatRepository(ChatRepositoryInterface):
         )
         return result.scalar_one_or_none()
 
-    async def get_active_chat(self, user_id: UUID, target_date: date) -> Optional[ChatModel]:
-        """Get the most recent interactive chat for a user+date."""
-        result = await self.session.execute(
-            select(ChatModel)
-            .where(
-                ChatModel.user_id == user_id,
-                ChatModel.date == target_date,
-                ChatModel.trigger == "chat",
-            )
-            .order_by(ChatModel.created_at.desc())
-            .limit(1)
+    async def list_for_user(
+        self, user_id: UUID, limit: int = 20, offset: int = 0,
+    ) -> tuple[list[ChatModel], int]:
+        base = select(ChatModel).where(
+            ChatModel.user_id == user_id,
+            ChatModel.trigger.in_(["chat", "generate"]),
         )
-        return result.scalar_one_or_none()
+        count_result = await self.session.execute(
+            select(func.count()).select_from(base.subquery())
+        )
+        total = count_result.scalar() or 0
+
+        result = await self.session.execute(
+            base.order_by(ChatModel.created_at.desc())
+            .limit(limit).offset(offset)
+        )
+        return list(result.scalars().all()), total
 
     async def update_messages(
         self, chat_id: UUID, messages_json: str,

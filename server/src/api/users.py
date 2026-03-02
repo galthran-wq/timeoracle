@@ -136,7 +136,6 @@ async def create_user_by_superuser(
     current_superuser: UserModel = Depends(get_current_superuser),
     user_repo: UserRepository = Depends(get_user_repository)
 ):
-    """Superuser endpoint to create a new registered user"""
     try:
         if len(request.password) < 6:
             raise HTTPException(
@@ -174,7 +173,6 @@ async def delete_user_by_superuser(
     current_superuser: UserModel = Depends(get_current_superuser),
     user_repo: UserRepository = Depends(get_user_repository)
 ):
-    """Superuser endpoint to delete a user by email or UUID"""
     try:
         deleted_user = await user_repo.delete_user(
             request.user_identifier,

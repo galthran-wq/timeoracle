@@ -41,7 +41,6 @@ def _make_ctx(
     user_session_config=None,
     event_queue=None,
 ):
-    """Build a mock RunContext with fake repos."""
     user_id = uuid.uuid4()
 
     activity_repo = MagicMock()
@@ -215,7 +214,6 @@ class TestSaveTimelineEntries:
             ),
         ]
         result = await save_timeline_entries(ctx, entries)
-        # Only the valid entry should be passed to bulk_upsert
         call_args = ctx.deps.timeline_repo.bulk_upsert.call_args
         assert len(call_args[0][1]) == 1
 

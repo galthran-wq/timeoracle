@@ -40,7 +40,6 @@ export const useTimelineStore = defineStore('timeline', () => {
     await fetchEntries()
   }
 
-  /** Convert entries to Schedule-X event format */
   function toCalendarEvents() {
     return entries.value.map((e) => ({
       id: e.id,

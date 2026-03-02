@@ -70,15 +70,12 @@ pub async fn login(server_url: &str, config_path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Check if a JWT token is expired by decoding the payload (without verification).
-/// Returns true if expired or unparseable.
 pub fn is_token_expired(token: &str) -> bool {
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() != 3 {
         return true;
     }
 
-    // JWT payload is base64url-encoded
     let payload = match base64url_decode(parts[1]) {
         Some(p) => p,
         None => return true,
@@ -99,7 +96,6 @@ pub fn is_token_expired(token: &str) -> bool {
 }
 
 fn base64url_decode(input: &str) -> Option<Vec<u8>> {
-    // base64url: replace - with +, _ with /, add padding
     let mut s = input.replace('-', "+").replace('_', "/");
     match s.len() % 4 {
         2 => s.push_str("=="),
@@ -115,7 +111,6 @@ fn base64url_decode(input: &str) -> Option<Vec<u8>> {
 }
 
 fn base64_reader(input: &str) -> Option<std::io::Cursor<Vec<u8>>> {
-    // Simple base64 decode without external crate
     let table = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut output = Vec::new();
     let mut buf: u32 = 0;
@@ -173,7 +168,6 @@ mod tests {
 
             i += 3;
         }
-        // Convert to base64url
         result.replace('+', "-").replace('/', "_").trim_end_matches('=').to_string()
     }
 
@@ -203,13 +197,13 @@ mod tests {
         let header = base64url_encode(b"{\"alg\":\"HS256\"}");
         let payload = base64url_encode(b"{\"sub\":\"test\"}");
         let token = format!("{header}.{payload}.sig");
-        assert!(is_token_expired(&token)); // no exp = treated as expired
+        assert!(is_token_expired(&token));
     }
 
     #[test]
     fn test_token_expiring_now() {
         let now = chrono::Utc::now().timestamp();
         let token = make_jwt(now);
-        assert!(is_token_expired(&token)); // now >= exp means expired
+        assert!(is_token_expired(&token));
     }
 }

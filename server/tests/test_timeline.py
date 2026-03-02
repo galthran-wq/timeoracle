@@ -22,8 +22,6 @@ def make_entry(**overrides):
     return defaults
 
 
-# ── POST /api/timeline ─────────────────────────────────────────────
-
 
 class TestCreateEntry:
     async def test_create_success(self, authed_client: httpx.AsyncClient):
@@ -104,8 +102,6 @@ class TestCreateEntry:
         assert resp.status_code == 401
 
 
-# ── GET /api/timeline ──────────────────────────────────────────────
-
 
 class TestListEntries:
     async def _seed(self, client: httpx.AsyncClient, count: int = 1, **overrides):
@@ -181,8 +177,6 @@ class TestListEntries:
         assert resp.status_code == 401
 
 
-# ── PATCH /api/timeline/{id} ───────────────────────────────────────
-
 
 class TestUpdateEntry:
     async def _create_entry(self, client: httpx.AsyncClient, **overrides) -> dict:
@@ -257,8 +251,6 @@ class TestUpdateEntry:
         assert resp.status_code == 401
 
 
-# ── DELETE /api/timeline/{id} ──────────────────────────────────────
-
 
 class TestDeleteEntry:
     async def test_delete_success(self, authed_client: httpx.AsyncClient):
@@ -268,7 +260,6 @@ class TestDeleteEntry:
         resp = await authed_client.delete(f"/api/timeline/{entry_id}")
         assert resp.status_code == 204
 
-        # Verify gone
         resp = await authed_client.patch(
             f"/api/timeline/{entry_id}", json={"label": "x"}
         )
@@ -285,18 +276,14 @@ class TestDeleteEntry:
         assert resp.status_code == 401
 
 
-# ── Cross-user isolation ───────────────────────────────────────────
-
 
 class TestUserIsolation:
     async def test_cannot_see_other_users_entries(
         self, authed_client: httpx.AsyncClient, client: httpx.AsyncClient, db_session,
     ):
-        # User 1 creates an entry
         resp = await authed_client.post("/api/timeline", json=make_entry())
         assert resp.status_code == 201
 
-        # Create user 2
         user2 = UserModel(
             id=uuid.uuid4(),
             email="other@example.com",

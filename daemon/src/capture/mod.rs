@@ -32,7 +32,6 @@ pub mod macos;
 pub mod macos_audio;
 pub mod idle;
 
-/// Create the appropriate ActivitySource for the current platform.
 pub fn create_activity_source() -> Box<dyn ActivitySource> {
     #[cfg(target_os = "linux")]
     {
@@ -58,12 +57,10 @@ pub fn create_activity_source() -> Box<dyn ActivitySource> {
     }
 }
 
-/// Create the idle detector for the current platform.
 pub fn create_idle_detector() -> Box<dyn IdleDetector> {
     Box::new(idle::SystemIdleDetector::new())
 }
 
-/// Create the audio source for the current platform, if available.
 pub fn create_audio_source(config: &Config) -> Option<Box<dyn AudioSource>> {
     if !config.audio_capture {
         return None;

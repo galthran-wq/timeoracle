@@ -76,6 +76,11 @@ make dev-user user@example.com password
 make dev-superuser admin@example.com
 ```
 
+## Code Style
+
+- **No inline comments.** Do not write line comments (`//`, `#`, `--`, etc.) unless explicitly asked.
+- **No docstrings.** Do not write docstrings for functions, classes, or modules unless explicitly asked.
+
 ## Server Conventions
 
 ### Code Organization

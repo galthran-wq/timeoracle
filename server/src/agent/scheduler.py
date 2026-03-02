@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 async def cron_generation_loop():
-    """Background task that generates timeline entries for all users every hour."""
     logger.info("Cron generation loop started")
 
     while True:

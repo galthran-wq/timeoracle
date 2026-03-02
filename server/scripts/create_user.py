@@ -1,23 +1,15 @@
 #!/usr/bin/env python3
-"""
-Script to create registered users.
-Usage: python scripts/create_user.py <email> <password>
-"""
-
 import asyncio
 import sys
 import os
 
-# Add the src directory to Python path - handle both local and Docker environments
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 src_path = os.path.join(project_root, 'src')
 
-# Add both possible paths
 sys.path.insert(0, src_path)
 sys.path.insert(0, project_root)
 
-# Also try current working directory structure
 if os.path.exists('/app/src'):
     sys.path.insert(0, '/app')
     sys.path.insert(0, '/app/src')
@@ -34,20 +26,16 @@ except ImportError:
 
 
 async def create_user(email: str, password: str):
-    """Create a new registered user"""
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
         
         try:
-            # Validate password length
             if len(password) < 6:
                 print(f"❌ Error: Password must be at least 6 characters long")
                 return False
             
-            # Hash the password
             password_hash = get_password_hash(password)
-            
-            # Create the user
+
             user = await user_repo.create_registered_user(email, password_hash)
             
             print(f"✅ Successfully created user:")
@@ -70,12 +58,10 @@ async def create_user(email: str, password: str):
 
 
 async def list_users():
-    """List all users in the database"""
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
         
         try:
-            # Get all users
             from sqlalchemy import select
             from src.models.postgres.models import UserModel
             
@@ -102,7 +88,6 @@ async def list_users():
 
 
 def print_usage():
-    """Print usage instructions"""
     print("Usage:")
     print("  python scripts/create_user.py <email> <password>  - Create a new registered user")
     print("  python scripts/create_user.py --list              - List all users")

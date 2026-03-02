@@ -19,8 +19,6 @@ def make_event(**overrides):
     return defaults
 
 
-# ── POST /api/activity/events ──────────────────────────────────────
-
 
 class TestIngestEvents:
     async def test_ingest_single_event(self, authed_client: httpx.AsyncClient):
@@ -160,8 +158,6 @@ class TestIngestEvents:
         assert resp.status_code == 401
 
 
-# ── GET /api/activity/events ───────────────────────────────────────
-
 
 class TestListEvents:
     async def _seed_events(self, client: httpx.AsyncClient, count: int = 5, **overrides):
@@ -292,8 +288,6 @@ class TestListEvents:
         assert resp.status_code == 401
 
 
-# ── GET /api/activity/status ───────────────────────────────────────
-
 
 class TestDaemonStatus:
     async def test_status_no_events(self, authed_client: httpx.AsyncClient):
@@ -318,8 +312,6 @@ class TestDaemonStatus:
         assert resp.status_code == 401
 
 
-# ── Cross-user isolation ──────────────────────────────────────────
-
 
 class TestUserIsolation:
     async def test_users_cannot_see_each_others_events(
@@ -328,13 +320,11 @@ class TestUserIsolation:
         client: httpx.AsyncClient,
         db_session,
     ):
-        # User 1 inserts events
         await authed_client.post(
             "/api/activity/events",
             json={"events": [make_event() for _ in range(3)]},
         )
 
-        # Create user 2
         from src.models.postgres.users import UserModel
         from src.core.auth import create_token_for_user
 

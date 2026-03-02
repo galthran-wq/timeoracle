@@ -17,17 +17,14 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plain password against its hash"""
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
-    """Generate password hash"""
     return pwd_context.hash(password)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """Create JWT access token"""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -50,10 +47,6 @@ def create_token_for_user(user: UserModel) -> str:
 
 
 def decode_jwt_token(token: str) -> Tuple[bool, Optional[UUID], Optional[str]]:
-    """
-    Decode JWT token and extract user ID
-    Returns: (success, user_id, error_message)
-    """
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
         user_id_str: str = payload.get("sub")
@@ -71,10 +64,6 @@ def decode_jwt_token(token: str) -> Tuple[bool, Optional[UUID], Optional[str]]:
 
 
 async def validate_user_from_token(token: str, postgres_session: AsyncSession) -> Tuple[bool, Optional[UserModel], Optional[str]]:
-    """
-    Validate JWT token and return user
-    Returns: (success, user, error_message)
-    """
     success, user_id, error = decode_jwt_token(token)
     if not success:
         return False, None, error
@@ -92,8 +81,6 @@ async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     postgres_session: AsyncSession = Depends(get_postgres_session)
 ) -> UserModel:
-    """Get the current user from JWT token"""
-    # Handle missing credentials manually to return 401 instead of 403
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -116,14 +103,12 @@ async def get_current_user(
 async def get_current_user_id(
     user: UserModel = Depends(get_current_user)
 ) -> UUID:
-    """Get the current user ID (for backward compatibility)"""
     return user.id
 
 
 async def get_current_superuser(
     current_user: UserModel = Depends(get_current_user)
 ) -> UserModel:
-    """Get the current superuser, raises 403 if not a superuser"""
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

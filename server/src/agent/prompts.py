@@ -13,9 +13,8 @@ CATEGORIES = {
 
 
 def build_system_prompt(target_date: date | None = None) -> str:
-    date_context = ""
-    if target_date:
-        date_context = f"\nToday's date context: {target_date.isoformat()} ({target_date.strftime('%A')})"
+    today = target_date or date.today()
+    date_context = f"\nToday's date: {today.isoformat()} ({today.strftime('%A')})"
 
     category_list = "\n".join(
         f"  - {name}: {color}" for name, color in CATEGORIES.items()

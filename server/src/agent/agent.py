@@ -61,15 +61,9 @@ async def generate_timeline(
     model: str | None = None,
     user_session_config: dict | None = None,
 ) -> dict:
-    """Run the agent to generate timeline entries for a given date.
-
-    Used by both the cron scheduler and the POST /api/agent/generate endpoint.
-    Returns: {"message": str, "chat_id": str}
-    """
     chat_repo = ChatRepository(session)
     chat = await chat_repo.create(
         user_id=user_id,
-        target_date=target_date,
         trigger="generate",
         llm_model=model or (user_session_config or {}).get("llm_model") or settings.default_llm_model,
     )
@@ -92,7 +86,6 @@ async def generate_timeline(
         model=effective_model,
     )
 
-    # Save message history and token usage to chat
     try:
         messages_json = result.all_messages_json().decode()
     except Exception:

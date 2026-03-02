@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, String, Date, DateTime, Integer, ForeignKey
+from sqlalchemy import Column, String, DateTime, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 
@@ -16,8 +16,7 @@ class ChatModel(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    date = Column(Date, nullable=True)
-    trigger = Column(String(20), nullable=False)  # "cron", "chat", "generate"
+    trigger = Column(String(20), nullable=False)
     llm_model = Column(String(100), nullable=False)
     messages = Column(JSONB, server_default="[]")
     total_input_tokens = Column(Integer, nullable=False, server_default="0")

@@ -1,6 +1,5 @@
 import json
 import uuid
-from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,14 +27,12 @@ class TestChatRepository:
 
         chat = await repo.create(
             user_id=user.id,
-            target_date=date(2026, 3, 1),
             trigger="generate",
             llm_model="openai:gpt-4o-mini",
         )
 
         assert chat.id is not None
         assert chat.user_id == user.id
-        assert chat.date == date(2026, 3, 1)
         assert chat.trigger == "generate"
         assert chat.llm_model == "openai:gpt-4o-mini"
         assert chat.total_input_tokens == 0
@@ -47,7 +44,6 @@ class TestChatRepository:
 
         chat = await repo.create(
             user_id=user.id,
-            target_date=date(2026, 3, 1),
             trigger="chat",
             llm_model="openai:gpt-4o-mini",
         )
@@ -61,44 +57,27 @@ class TestChatRepository:
         found = await repo.get_by_id(uuid.uuid4())
         assert found is None
 
-    async def test_get_active_chat(self, db_session: AsyncSession, engine):
+    async def test_list_for_user(self, db_session: AsyncSession, engine):
         user = await _create_user(db_session)
         repo = ChatRepository(db_session)
 
-        # Create a generate chat (should not be returned)
-        await repo.create(
-            user_id=user.id,
-            target_date=date(2026, 3, 1),
-            trigger="generate",
-            llm_model="openai:gpt-4o-mini",
-        )
+        await repo.create(user_id=user.id, trigger="generate", llm_model="openai:gpt-4o-mini")
+        await repo.create(user_id=user.id, trigger="chat", llm_model="openai:gpt-4o-mini")
 
-        # Create an interactive chat (should be returned)
-        chat = await repo.create(
-            user_id=user.id,
-            target_date=date(2026, 3, 1),
-            trigger="chat",
-            llm_model="openai:gpt-4o-mini",
-        )
+        chats, total = await repo.list_for_user(user.id)
+        assert total == 2
+        assert len(chats) == 2
 
-        found = await repo.get_active_chat(user.id, date(2026, 3, 1))
-        assert found is not None
-        assert found.id == chat.id
-
-    async def test_get_active_chat_different_date(self, db_session: AsyncSession, engine):
+    async def test_list_for_user_excludes_cron(self, db_session: AsyncSession, engine):
         user = await _create_user(db_session)
         repo = ChatRepository(db_session)
 
-        await repo.create(
-            user_id=user.id,
-            target_date=date(2026, 3, 1),
-            trigger="chat",
-            llm_model="openai:gpt-4o-mini",
-        )
+        await repo.create(user_id=user.id, trigger="cron", llm_model="openai:gpt-4o-mini")
+        await repo.create(user_id=user.id, trigger="chat", llm_model="openai:gpt-4o-mini")
 
-        # Different date should return None
-        found = await repo.get_active_chat(user.id, date(2026, 3, 2))
-        assert found is None
+        chats, total = await repo.list_for_user(user.id)
+        assert total == 1
+        assert chats[0].trigger == "chat"
 
     async def test_update_messages(self, db_session: AsyncSession, engine):
         user = await _create_user(db_session)
@@ -106,7 +85,6 @@ class TestChatRepository:
 
         chat = await repo.create(
             user_id=user.id,
-            target_date=date(2026, 3, 1),
             trigger="chat",
             llm_model="openai:gpt-4o-mini",
         )
@@ -130,7 +108,6 @@ class TestChatRepository:
 
         chat = await repo.create(
             user_id=user.id,
-            target_date=date(2026, 3, 1),
             trigger="chat",
             llm_model="openai:gpt-4o-mini",
         )

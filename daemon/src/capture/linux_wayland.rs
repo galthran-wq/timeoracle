@@ -2,8 +2,6 @@ use crate::capture::ActivitySource;
 use crate::error::Result;
 use crate::events::WindowInfo;
 
-/// Wayland stub — active window capture is not supported on Wayland
-/// without compositor-specific protocols (e.g., wlr-foreign-toplevel).
 pub struct WaylandSource;
 
 impl WaylandSource {

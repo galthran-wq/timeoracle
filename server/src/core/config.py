@@ -7,7 +7,6 @@ logger = logging.getLogger(__name__)
 
 
 def get_env_file():
-    """Get the appropriate .env file based on ENV variable"""
     env = os.getenv("ENV", "development")
     
     if env == "test":
@@ -50,4 +49,10 @@ class Settings(BaseSettings):
         case_sensitive = False
 
 
-settings = Settings() 
+settings = Settings()
+
+for _key in ("openai_api_key", "anthropic_api_key", "moonshotai_api_key"):
+    _val = getattr(settings, _key, None)
+    _env = _key.upper()
+    if _val and not os.environ.get(_env):
+        os.environ[_env] = _val 

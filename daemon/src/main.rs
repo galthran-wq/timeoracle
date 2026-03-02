@@ -73,9 +73,8 @@ fn run_headless(config: Config) -> anyhow::Result<()> {
         let (cmd_tx, cmd_rx) = tokio::sync::mpsc::channel::<engine::EngineCommand>(32);
         let (status_tx, status_rx) = tokio::sync::watch::channel(engine::DaemonStatus::default());
 
-        let _ = status_rx; // Not used in headless mode
+        let _ = status_rx;
 
-        // Spawn signal handler
         let shutdown_tx_clone = shutdown_tx.clone();
         tokio::spawn(async move {
             tokio::signal::ctrl_c().await.ok();
@@ -88,7 +87,6 @@ fn run_headless(config: Config) -> anyhow::Result<()> {
             buffer::EventBuffer::open(&buffer_path)?,
         ));
 
-        // Spawn engine
         let engine_handle = {
             let config = config.clone();
             let buffer = buffer.clone();
@@ -98,7 +96,6 @@ fn run_headless(config: Config) -> anyhow::Result<()> {
             })
         };
 
-        // Spawn sync task
         let sync_handle = {
             let config = config.clone();
             let buffer = buffer.clone();
@@ -108,7 +105,7 @@ fn run_headless(config: Config) -> anyhow::Result<()> {
             })
         };
 
-        let _ = cmd_tx; // Drop command sender — no tray to send commands
+        let _ = cmd_tx;
         let _ = shutdown_rx;
 
         tokio::select! {

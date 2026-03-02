@@ -26,6 +26,8 @@
     "@schedule-x/vue": "^3.6.0",
     "@vicons/ionicons5": "^0.13.0",
     "date-fns": "^4.1.0",
+    "dompurify": "^3.3.1",
+    "marked": "^17.0.3",
     "naive-ui": "^2.41.0",
     "pinia": "^3.0.3",
     "preact": "^10.19.2",
