@@ -14,15 +14,19 @@ enum BrowserType {
 
 fn detect_browser(app_name: &str) -> Option<BrowserType> {
     let lower = app_name.to_lowercase();
-    if lower.contains("firefox") {
+    let tokens: Vec<&str> = lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .collect();
+    if tokens.iter().any(|token| *token == "firefox") {
         return Some(BrowserType::Firefox);
     }
-    if lower.contains("chrom")
-        || lower.contains("brave")
-        || lower.contains("edge")
-        || lower.contains("vivaldi")
-        || lower.contains("opera")
-    {
+    if tokens.iter().any(|token| {
+        matches!(
+            *token,
+            "chrome" | "chromium" | "brave" | "edge" | "vivaldi" | "opera"
+        )
+    }) {
         return Some(BrowserType::Chromium);
     }
     None
@@ -194,8 +198,7 @@ fn find_url_in_toolbar(
 ) -> Option<String> {
     let children = get_children(conn, bus_name, "/org/a11y/atspi/accessible/root")?;
     for (_, frame_path) in &children {
-        if let Some(url) = search_tree(conn, bus_name, frame_path, toolbar_name, max_depth, false)
-        {
+        if let Some(url) = search_tree(conn, bus_name, frame_path, toolbar_name, max_depth, false) {
             return Some(url);
         }
     }

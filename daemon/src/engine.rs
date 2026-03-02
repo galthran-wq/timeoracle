@@ -147,7 +147,7 @@ pub async fn run_with(
                     continue;
                 }
 
-                let window = match source.get_active_window() {
+                let mut window = match source.get_active_window() {
                     Ok(Some(w)) => w,
                     Ok(None) => continue,
                     Err(e) => {
@@ -160,6 +160,15 @@ pub async fn run_with(
                     window.app_name.to_lowercase().contains(&app.to_lowercase())
                 }) {
                     continue;
+                }
+
+                if let Some(last) = &last_window {
+                    if window.app_name == last.app_name
+                        && window.window_title == last.window_title
+                        && window.url.is_none()
+                    {
+                        window.url = last.url.clone();
+                    }
                 }
 
                 let changed = match &last_window {

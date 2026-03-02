@@ -51,9 +51,8 @@ impl MacOSSource {
             }
             let dict = unsafe { &*(dict_ptr as *const CFDictionary) };
 
-            let (pid_key, layer_key, name_key) = unsafe {
-                (&*kCGWindowOwnerPID, &*kCGWindowLayer, &*kCGWindowName)
-            };
+            let (pid_key, layer_key, name_key) =
+                unsafe { (&*kCGWindowOwnerPID, &*kCGWindowLayer, &*kCGWindowName) };
 
             let pid = cf_dict_get_i32(dict, pid_key);
             if pid != Some(target_pid) {
@@ -130,12 +129,15 @@ fn jxa_url_script(app_name: &str) -> Option<String> {
         ));
     }
 
-    let is_chromium = lower.contains("chrom")
-        || lower.contains("brave")
-        || lower.contains("edge")
-        || lower.contains("vivaldi")
-        || lower.contains("opera")
-        || lower.contains("arc");
+    let is_chromium = lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .any(|token| {
+            matches!(
+                token,
+                "chrome" | "chromium" | "brave" | "edge" | "vivaldi" | "opera" | "arc"
+            )
+        });
 
     if is_chromium {
         return Some(format!(
