@@ -9,9 +9,7 @@ import { getLogicalToday } from '@/utils/dayBoundary'
 function computeToday(): string {
   const auth = useAuthStore()
   const cfg = auth.user?.session_config
-  if (cfg && (cfg.day_start_hour !== 0 || cfg.timezone !== 'UTC')) {
-    return getLogicalToday(cfg.day_start_hour, cfg.timezone)
-  }
+  if (cfg) return getLogicalToday(cfg.day_start_hour, cfg.timezone)
   return format(new Date(), 'yyyy-MM-dd')
 }
 

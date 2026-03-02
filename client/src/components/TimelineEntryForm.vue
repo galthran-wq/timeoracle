@@ -120,13 +120,23 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
 
+function hourInTimezone(dt: Date, timezone: string): number {
+  const formatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: '2-digit', hour12: false })
+  const parts = formatter.formatToParts(dt)
+  const hourValue = parts.find((p) => p.type === 'hour')?.value
+  const hour = Number(hourValue === '24' ? '0' : hourValue)
+  return Number.isNaN(hour) ? dt.getHours() : hour
+}
+
 function buildISOFromTimePicker(timeMs: number): string {
   const d = new Date(timeMs)
   const dateParts = props.date.split('-').map(Number)
   let merged = set(d, { year: dateParts[0], month: dateParts[1] - 1, date: dateParts[2] })
   const auth = useAuthStore()
   const dayStartHour = auth.user?.session_config?.day_start_hour ?? 0
-  if (dayStartHour > 0 && d.getHours() < dayStartHour) {
+  const timezone = auth.user?.session_config?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+  const hour = hourInTimezone(merged, timezone)
+  if (dayStartHour > 0 && hour < dayStartHour) {
     merged = addDays(merged, 1)
   }
   return formatISO(merged)

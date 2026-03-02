@@ -32,10 +32,32 @@ const DEFAULTS: SessionConfig = {
 
 const timezoneOptions = Intl.supportedValuesOf('timeZone').map((tz) => ({ label: tz, value: tz }))
 
-function formatHour(h: number): string {
+function formatHour(h: number | null): string {
+  if (h === null) return ''
   const suffix = h < 12 ? 'AM' : 'PM'
   const display = h === 0 ? 12 : h > 12 ? h - 12 : h
   return `${display}:00 ${suffix}`
+}
+
+function parseHour(value: string): number {
+  const trimmed = value.trim()
+  if (!trimmed) return 0
+  const match = trimmed.match(/^(\d{1,2})(?::\d{2})?\s*(am|pm)?$/i)
+  if (!match) {
+    const fallback = Number.parseInt(trimmed, 10)
+    return Number.isNaN(fallback) ? 0 : Math.max(0, Math.min(23, fallback))
+  }
+  let hour = Number.parseInt(match[1], 10)
+  if (Number.isNaN(hour)) return 0
+  const meridiem = match[2]?.toLowerCase()
+  if (meridiem) {
+    if (hour === 12) {
+      hour = meridiem === 'am' ? 0 : 12
+    } else if (meridiem === 'pm') {
+      hour = hour + 12
+    }
+  }
+  return Math.max(0, Math.min(23, hour))
 }
 
 const activeTab = ref('sessions')
@@ -183,6 +205,7 @@ onMounted(loadConfig)
                   :step="1"
                   style="width: 200px"
                   :format="formatHour"
+                  :parse="parseHour"
                 />
               </div>
 

@@ -35,23 +35,3 @@ export function getLogicalToday(dayStartHour: number, timezone: string): string 
   }
   return `${year}-${pad(month)}-${pad(day)}`
 }
-
-export function logicalDateForTimestamp(
-  isoTimestamp: string,
-  dayStartHour: number,
-  timezone: string,
-): string {
-  const dt = new Date(isoTimestamp)
-  const local = toLocalParts(dt, timezone)
-  let year = local.year
-  let month = local.month
-  let day = local.day
-  if (local.hour < dayStartHour) {
-    const prev = new Date(dt.getTime() - 86400000)
-    const p = toLocalParts(prev, timezone)
-    year = p.year
-    month = p.month
-    day = p.day
-  }
-  return `${year}-${pad(month)}-${pad(day)}`
-}
