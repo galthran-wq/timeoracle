@@ -112,12 +112,10 @@ pub async fn run_with(
                     continue;
                 }
 
-                // Check idle
                 let idle_secs = idle_detector.get_idle_seconds().unwrap_or(0);
                 let is_idle = idle_secs >= config.idle_threshold_secs;
 
                 if is_idle && !was_idle {
-                    // Transition to idle
                     was_idle = true;
                     let now = Instant::now();
                     let idle_start = now
@@ -132,7 +130,6 @@ pub async fn run_with(
                 }
 
                 if !is_idle && was_idle {
-                    // Transition from idle
                     was_idle = false;
                     let idle_duration_secs = idle_started_at
                         .take()
@@ -140,7 +137,7 @@ pub async fn run_with(
                         .unwrap_or(idle_secs);
                     let event = ActivityEvent::idle_end(idle_duration_secs);
                     store_event(&buffer, &event);
-                    last_window = None; // Force re-capture
+                    last_window = None;
                     last_change_time = Instant::now();
                     update_status(status_tx, &buffer, DaemonState::Capturing);
                     tracing::debug!("User returned from idle");
@@ -150,7 +147,6 @@ pub async fn run_with(
                     continue;
                 }
 
-                // Capture active window
                 let window = match source.get_active_window() {
                     Ok(Some(w)) => w,
                     Ok(None) => continue,
@@ -160,14 +156,12 @@ pub async fn run_with(
                     }
                 };
 
-                // Check ignore list
                 if config.ignore_apps.iter().any(|app| {
                     window.app_name.to_lowercase().contains(&app.to_lowercase())
                 }) {
                     continue;
                 }
 
-                // Diff against last window
                 let changed = match &last_window {
                     Some(last) => last != &window,
                     None => true,
@@ -181,7 +175,6 @@ pub async fn run_with(
                     last_change_time = Instant::now();
                     update_status(status_tx, &buffer, DaemonState::Capturing);
                 } else {
-                    // Same window — check heartbeat
                     let elapsed = last_change_time.elapsed().as_secs();
                     if elapsed >= config.heartbeat_interval_secs {
                         let audio_info = capture_audio(audio_source);
@@ -230,7 +223,7 @@ fn update_status(
     let _ = status_tx.send(DaemonStatus {
         state,
         events_buffered,
-        server_connected: false, // Updated by sync task
+        server_connected: false,
         auth_ok: true,
         ..Default::default()
     });
@@ -295,7 +288,6 @@ mod tests {
         let mut mock_idle = MockIdleDetector::new();
         mock_idle.expect_get_idle_seconds().returning(|| Ok(0));
 
-        // Run engine for a short time then shut down
         let buffer_clone = buffer.clone();
         let handle = tokio::spawn(async move {
             run_with(
@@ -357,12 +349,10 @@ mod tests {
             .await
         });
 
-        // Wait for multiple ticks
         tokio::time::sleep(tokio::time::Duration::from_millis(2500)).await;
         let _ = shutdown_tx.send(());
         handle.await.unwrap().unwrap();
 
-        // Should only have 1 WindowChange, not one per tick
         let events = buffer.lock().unwrap().read_batch(100).unwrap();
         let window_changes: Vec<_> = events
             .iter()
@@ -465,14 +455,11 @@ mod tests {
             .await
         });
 
-        // First tick: active, should get WindowChange
         tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
 
-        // Go idle
         idle_secs.set(10);
         tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
 
-        // Return from idle
         idle_secs.set(0);
         tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
 
@@ -537,12 +524,10 @@ mod tests {
             .await
         });
 
-        // Let it capture one event
         tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
         let count_before = buffer.lock().unwrap().count().unwrap();
         assert!(count_before >= 1);
 
-        // Pause
         cmd_tx.send(EngineCommand::Pause).await.unwrap();
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         assert_eq!(status_rx.borrow().state, DaemonState::Paused);
@@ -552,7 +537,6 @@ mod tests {
         let count_still_paused = buffer.lock().unwrap().count().unwrap();
         assert_eq!(count_paused, count_still_paused, "No events while paused");
 
-        // Resume
         cmd_tx.send(EngineCommand::Resume).await.unwrap();
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         assert_eq!(status_rx.borrow().state, DaemonState::Capturing);
@@ -599,7 +583,6 @@ mod tests {
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         cmd_tx.send(EngineCommand::Quit).await.unwrap();
 
-        // Should exit cleanly
         let result = tokio::time::timeout(tokio::time::Duration::from_secs(2), handle).await;
         assert!(result.is_ok(), "Engine should quit promptly");
     }

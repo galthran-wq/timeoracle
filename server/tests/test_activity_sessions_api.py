@@ -95,7 +95,6 @@ class TestListEndpoint:
         assert body["total_count"] == 3
 
     async def test_session_fields(self, authed_client: httpx.AsyncClient):
-        """Verify all expected fields are present in session response."""
         base = datetime(2026, 2, 23, 14, 0, tzinfo=timezone.utc)
         events = [
             make_event(base, app_name="Firefox", window_title="Home", url="https://example.com"),
@@ -118,7 +117,6 @@ class TestListEndpoint:
         assert session["url"] == "https://example.com"
 
     async def test_sessions_computed_from_ingested_events(self, authed_client: httpx.AsyncClient):
-        """Sessions are computed on-demand from stored events."""
         base = datetime(2026, 2, 23, 14, 0, tzinfo=timezone.utc)
         events = [
             make_event(base, app_name="Firefox", window_title="Home"),
@@ -136,17 +134,14 @@ class TestListEndpoint:
         assert resp.json()["total_count"] == 2
 
     async def test_ingest_twice_sessions_accumulate(self, authed_client: httpx.AsyncClient):
-        """Two sequential ingestions produce correct accumulated sessions."""
         base = datetime(2026, 2, 23, 14, 0, tzinfo=timezone.utc)
 
-        # First ingestion
         batch1 = [
             make_event(base, app_name="Firefox", window_title="Home"),
             make_event(base + timedelta(minutes=15), app_name="VSCode", window_title="main.py"),
         ]
         await authed_client.post("/api/activity/events", json={"events": batch1})
 
-        # Second ingestion
         batch2 = [
             make_event(base + timedelta(minutes=30), app_name="VSCode", window_title="utils.py"),
             make_event(base + timedelta(minutes=45), app_name="Chrome", window_title="Docs"),
@@ -163,7 +158,6 @@ class TestListEndpoint:
         assert apps == ["Firefox", "VSCode", "Chrome"]
 
     async def test_session_icon_and_brand_color_resolved(self, authed_client: httpx.AsyncClient):
-        """icon and brand_color resolved for known apps, null for unknown."""
         base = datetime(2026, 2, 23, 14, 0, tzinfo=timezone.utc)
         events = [
             make_event(base, app_name="Firefox", window_title="Home"),
@@ -185,7 +179,6 @@ class TestListEndpoint:
         assert xterm_session["brand_color"] is None
 
     async def test_session_window_titles_in_response(self, authed_client: httpx.AsyncClient):
-        """window_titles contains all unique titles; window_title is first seen."""
         base = datetime(2026, 2, 23, 14, 0, tzinfo=timezone.utc)
         events = [
             make_event(base, app_name="Firefox", window_title="Tab A"),
@@ -205,7 +198,6 @@ class TestListEndpoint:
         assert set(firefox["window_titles"]) == {"Tab A", "Tab B"}
 
     async def test_generate_endpoint_removed(self, authed_client: httpx.AsyncClient):
-        """POST /generate endpoint no longer exists."""
         resp = await authed_client.post(
             "/api/activity/sessions/generate",
             json={"date": "2026-02-23"},

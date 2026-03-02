@@ -106,7 +106,6 @@ function handleKeydown(e: KeyboardEvent) {
       </div>
     </div>
 
-    <!-- History view -->
     <template v-if="isHistory">
       <NScrollbar class="chat-messages">
         <NSpin v-if="chatStore.loadingHistory" style="width: 100%; padding: 32px 0" />
@@ -141,7 +140,6 @@ function handleKeydown(e: KeyboardEvent) {
       </NScrollbar>
     </template>
 
-    <!-- Chat view -->
     <template v-else>
       <NScrollbar ref="scrollbarRef" class="chat-messages">
         <div v-if="!chatStore.messages.length" class="chat-empty">
@@ -275,7 +273,6 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-/* History list */
 .history-item {
   padding: var(--to-space-sm) var(--to-space-md);
   border-bottom: 1px solid var(--to-border);
@@ -294,7 +291,6 @@ function handleKeydown(e: KeyboardEvent) {
   margin-bottom: 2px;
 }
 
-/* Markdown */
 .markdown-body :deep(p) {
   margin: 0 0 0.4em;
 }

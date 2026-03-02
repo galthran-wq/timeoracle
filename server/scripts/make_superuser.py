@@ -1,24 +1,16 @@
 #!/usr/bin/env python3
-"""
-Script to promote users to superuser status.
-Usage: python scripts/make_superuser.py <email_or_uuid>
-"""
-
 import asyncio
 import sys
 import os
 from uuid import UUID
 
-# Add the src directory to Python path - handle both local and Docker environments
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 src_path = os.path.join(project_root, 'src')
 
-# Add both possible paths
 sys.path.insert(0, src_path)
 sys.path.insert(0, project_root)
 
-# Also try current working directory structure
 if os.path.exists('/app/src'):
     sys.path.insert(0, '/app')
     sys.path.insert(0, '/app/src')
@@ -33,19 +25,16 @@ except ImportError:
 
 
 async def make_superuser(user_identifier: str):
-    """Make a user a superuser by email or UUID"""
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
         
         try:
-            # Try to parse as UUID first, then treat as email
             user = None
             try:
                 uuid_identifier = UUID(user_identifier)
                 user = await user_repo.get_user(uuid_identifier)
                 identifier_type = "UUID"
             except ValueError:
-                # It's an email
                 user = await user_repo.get_user_by_email(user_identifier)
                 identifier_type = "email"
             
@@ -57,7 +46,6 @@ async def make_superuser(user_identifier: str):
                 print(f"✅ User {user.email or user.id} is already a superuser")
                 return True
             
-            # Update user to superuser
             from sqlalchemy import update
             from src.models.postgres.models import UserModel
             
@@ -109,7 +97,6 @@ async def list_users():
 
 
 def print_usage():
-    """Print usage instructions"""
     print("Usage:")
     print("  python scripts/make_superuser.py <email_or_uuid>  - Promote user to superuser")
     print("  python scripts/make_superuser.py --list           - List all users")

@@ -52,7 +52,6 @@ impl X11Source {
     }
 
     fn get_window_name(&self, window: u32) -> Option<String> {
-        // Try _NET_WM_NAME first (UTF-8)
         let utf8_atom = self
             .conn
             .intern_atom(false, b"_NET_WM_NAME")
@@ -79,7 +78,6 @@ impl X11Source {
             return String::from_utf8(reply.value).ok();
         }
 
-        // Fallback to WM_NAME
         let reply = self
             .conn
             .get_property(
@@ -120,8 +118,6 @@ impl X11Source {
             return None;
         }
 
-        // WM_CLASS is two null-terminated strings: instance\0class\0
-        // We want the class (second part)
         let parts: Vec<&[u8]> = reply.value.split(|&b| b == 0).collect();
         if parts.len() >= 2 {
             String::from_utf8(parts[1].to_vec()).ok()
@@ -150,7 +146,7 @@ impl ActivitySource for X11Source {
         Ok(Some(WindowInfo {
             app_name,
             window_title,
-            url: None, // URL extraction requires browser-specific integration
+            url: None,
         }))
     }
 }

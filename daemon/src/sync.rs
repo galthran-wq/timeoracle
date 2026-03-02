@@ -8,11 +8,10 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 use uuid::Uuid;
 
-const MAX_BACKOFF_SECS: u64 = 300; // 5 minutes
+const MAX_BACKOFF_SECS: u64 = 300;
 const MAX_BUFFER_EVENTS: usize = 100_000;
 const CLEANUP_AGE_DAYS: u32 = 7;
 
-/// Matches the server's ActivityEventCreate schema.
 #[derive(Serialize)]
 struct ServerEvent {
     client_event_id: Uuid,
@@ -26,7 +25,6 @@ struct ServerEvent {
     metadata: Option<serde_json::Value>,
 }
 
-/// Matches the server's ActivityEventBatchRequest schema.
 #[derive(Serialize)]
 struct ServerBatchRequest {
     events: Vec<ServerEvent>,
@@ -94,7 +92,6 @@ pub async fn run(
         tokio::select! {
             _ = shutdown_rx.recv() => {
                 tracing::info!("Sync task received shutdown signal");
-                // Final flush attempt
                 let _ = flush_once(&config, &buffer, &client).await;
                 break;
             }
@@ -119,7 +116,7 @@ pub async fn run(
                     }
                     Err(DaemonError::TokenExpired) => {
                         tracing::warn!("Auth token expired — please re-login");
-                        backoff_secs = MAX_BACKOFF_SECS; // Wait longer on auth errors
+                        backoff_secs = MAX_BACKOFF_SECS;
                     }
                     Err(e) => {
                         tracing::warn!("Sync failed: {e}");
@@ -130,7 +127,6 @@ pub async fn run(
                     }
                 }
 
-                // Periodic cleanup
                 if let Ok(buf) = buffer.lock() {
                     let _ = buf.cleanup_old(CLEANUP_AGE_DAYS);
                     let _ = buf.cleanup_excess(MAX_BUFFER_EVENTS);
@@ -191,7 +187,6 @@ async fn flush_once(
         )));
     }
 
-    // Delete flushed events
     let buf = buffer
         .lock()
         .map_err(|e| DaemonError::Buffer(format!("Lock poisoned: {e}")))?;
@@ -266,7 +261,6 @@ mod tests {
         }
     }
 
-    /// Spawn an axum mock HTTP server that returns the given status code.
     async fn spawn_mock_server(status_code: u16) -> String {
         let status = Arc::new(AtomicU16::new(status_code));
         let app = Router::new().route(
@@ -290,7 +284,6 @@ mod tests {
         tokio::spawn(async move {
             axum::serve(listener, app).await.ok();
         });
-        // Give the server a moment to start accepting connections
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
         format!("http://{addr}")
@@ -480,15 +473,12 @@ mod tests {
         };
         let json: serde_json::Value = serde_json::to_value(&batch).unwrap();
 
-        // Must have top-level "events" array
         assert!(json["events"].is_array());
         let first = &json["events"][0];
-        // Must use server field names
         assert!(first.get("client_event_id").is_some());
         assert!(first.get("event_type").is_some());
         assert!(first.get("app_name").is_some());
         assert!(first.get("window_title").is_some());
-        // Must NOT have daemon internal field names
         assert!(first.get("id").is_none());
         assert!(first.get("window_info").is_none());
     }

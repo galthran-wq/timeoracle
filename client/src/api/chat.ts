@@ -79,9 +79,7 @@ export async function chatStream(
           } else if (eventType === 'error') {
             callbacks.onError(parsed.error)
           }
-        } catch {
-          // malformed JSON line, skip
-        }
+        } catch {}
         eventType = ''
       }
     }

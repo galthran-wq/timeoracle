@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 class TimelineEntry(BaseModel):
-    """A timeline entry to save."""
     id: str | None = Field(default=None, description="Existing entry UUID to update, or null to create new")
     date: str = Field(description="Date in YYYY-MM-DD format")
     start_time: str = Field(description="Start time as ISO 8601 datetime with timezone")
@@ -31,12 +30,6 @@ async def _emit(ctx: RunContext[AgentDeps], event_type: str, data: dict):
 
 
 async def get_activity_sessions(ctx: RunContext[AgentDeps], target_date: str) -> list[dict]:
-    """Fetch computed activity sessions for a given date. Returns app names, window titles, URLs, and time ranges.
-
-    Args:
-        ctx: The run context with dependencies.
-        target_date: Date in YYYY-MM-DD format.
-    """
     await _emit(ctx, "tool_call", {"name": "get_activity_sessions", "args": {"date": target_date}})
 
     try:
@@ -81,12 +74,6 @@ async def get_activity_sessions(ctx: RunContext[AgentDeps], target_date: str) ->
 
 
 async def get_existing_timeline(ctx: RunContext[AgentDeps], target_date: str) -> list[dict]:
-    """Fetch existing timeline entries for a given date. Use this to avoid duplicates and respect user edits.
-
-    Args:
-        ctx: The run context with dependencies.
-        target_date: Date in YYYY-MM-DD format.
-    """
     await _emit(ctx, "tool_call", {"name": "get_existing_timeline", "args": {"date": target_date}})
 
     try:
@@ -115,12 +102,6 @@ async def get_existing_timeline(ctx: RunContext[AgentDeps], target_date: str) ->
 
 
 async def save_timeline_entries(ctx: RunContext[AgentDeps], entries: list[TimelineEntry]) -> dict:
-    """Save timeline entries to the database. Creates new entries or updates existing ones. Entries edited by user are automatically skipped.
-
-    Args:
-        ctx: The run context with dependencies.
-        entries: List of timeline entries to save.
-    """
     await _emit(ctx, "tool_call", {"name": "save_timeline_entries", "args": {"count": len(entries)}})
 
     from uuid import UUID

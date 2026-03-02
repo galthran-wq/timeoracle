@@ -67,7 +67,6 @@ class ChatRepository(ChatRepositoryInterface):
     async def list_for_user(
         self, user_id: UUID, limit: int = 20, offset: int = 0,
     ) -> tuple[list[ChatModel], int]:
-        """List chats for a user, excluding cron-triggered ones."""
         base = select(ChatModel).where(
             ChatModel.user_id == user_id,
             ChatModel.trigger.in_(["chat", "generate"]),

@@ -16,7 +16,7 @@ class ChatModel(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    trigger = Column(String(20), nullable=False)  # "cron", "chat", "generate"
+    trigger = Column(String(20), nullable=False)
     llm_model = Column(String(100), nullable=False)
     messages = Column(JSONB, server_default="[]")
     total_input_tokens = Column(Integer, nullable=False, server_default="0")

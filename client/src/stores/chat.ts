@@ -13,8 +13,6 @@ export const useChatStore = defineStore('chat', () => {
   const streaming = ref(false)
   const error = ref<string | null>(null)
 
-  // Active chat session — tracks backend chat_id for conversation continuity
-  // Restored from localStorage so chats survive page reload
   const activeChatId = ref<string | null>(localStorage.getItem(ACTIVE_CHAT_KEY))
 
   watch(activeChatId, (id) => {
@@ -22,7 +20,6 @@ export const useChatStore = defineStore('chat', () => {
     else localStorage.removeItem(ACTIVE_CHAT_KEY)
   })
 
-  // History
   const activeView = ref<'chat' | 'history'>('chat')
   const chatList = ref<ChatSummary[]>([])
   const chatListTotal = ref(0)
@@ -47,7 +44,6 @@ export const useChatStore = defineStore('chat', () => {
       content: '',
       timestamp: new Date().toISOString(),
     })
-    // Get the reactive proxy so Vue detects mutations during streaming
     const assistantMsg = messages.value[messages.value.length - 1]
 
     streaming.value = true
@@ -136,7 +132,6 @@ export const useChatStore = defineStore('chat', () => {
     fetchHistory()
   }
 
-  /** Restore last active chat from backend on page load. */
   async function restoreChat() {
     if (activeChatId.value && !messages.value.length) {
       const restored = await loadChat(activeChatId.value)

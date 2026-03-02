@@ -90,8 +90,6 @@ class TestChatEndpoint:
 
     @patch("src.api.chat.agent")
     async def test_returns_sse_stream(self, mock_agent, authed_client: httpx.AsyncClient):
-        """Verify the endpoint returns SSE-formatted events."""
-        # Create a mock streaming result
         mock_result = AsyncMock()
         mock_result.stream_text = MagicMock()
         mock_result.all_messages_json = MagicMock(return_value=b"[]")
@@ -101,14 +99,12 @@ class TestChatEndpoint:
         mock_usage.response_tokens = 20
         mock_result.usage = MagicMock(return_value=mock_usage)
 
-        # stream_text returns an async iterator of text chunks
         async def fake_stream(delta=True):
             yield "Hello "
             yield "world!"
 
         mock_result.stream_text = fake_stream
 
-        # run_stream is an async context manager
         mock_cm = AsyncMock()
         mock_cm.__aenter__ = AsyncMock(return_value=mock_result)
         mock_cm.__aexit__ = AsyncMock(return_value=False)
@@ -121,25 +117,21 @@ class TestChatEndpoint:
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("text/event-stream")
 
-        # Parse SSE events from the response body
         body = resp.text
         events = _parse_sse(body)
 
-        # Should have text events and a done event
         text_events = [e for e in events if e["event"] == "text"]
         done_events = [e for e in events if e["event"] == "done"]
 
         assert len(text_events) >= 1
         assert len(done_events) == 1
 
-        # Verify text content
         full_text = "".join(json.loads(e["data"])["text"] for e in text_events)
         assert "Hello" in full_text
         assert "world" in full_text
 
     @patch("src.api.chat.agent")
     async def test_error_event_on_failure(self, mock_agent, authed_client: httpx.AsyncClient):
-        """Verify errors are sent as SSE error events."""
         mock_agent.run_stream = MagicMock(side_effect=RuntimeError("LLM exploded"))
 
         resp = await authed_client.post(
@@ -154,7 +146,6 @@ class TestChatEndpoint:
 
 
 def _parse_sse(body: str) -> list[dict]:
-    """Parse SSE text into a list of {event, data} dicts."""
     events = []
     current_event = None
     current_data = None

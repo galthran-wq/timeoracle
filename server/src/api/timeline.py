@@ -115,7 +115,6 @@ async def update_entry(
     if not entry or entry.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Timeline entry not found")
 
-    # Cross-validate effective end > start
     effective_start = body.start_time if body.start_time is not None else entry.start_time
     effective_end = body.end_time if body.end_time is not None else entry.end_time
     if effective_end <= effective_start:
