@@ -9,7 +9,7 @@ mod linux_x11_tests {
             return;
         }
 
-        let source = digitalgulag_daemon::capture::linux_x11::X11Source::new();
+        let source = digitalgulag_daemon::capture::linux_x11::X11Source::new(false);
         assert!(source.is_ok(), "X11 source should connect when DISPLAY is set");
     }
 
@@ -19,7 +19,7 @@ mod linux_x11_tests {
             return;
         }
 
-        let source = match digitalgulag_daemon::capture::linux_x11::X11Source::new() {
+        let source = match digitalgulag_daemon::capture::linux_x11::X11Source::new(false) {
             Ok(s) => s,
             Err(_) => return, // Can't connect, skip
         };

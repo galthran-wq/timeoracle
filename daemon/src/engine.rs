@@ -47,7 +47,7 @@ pub async fn run(
     status_tx: watch::Sender<DaemonStatus>,
     mut shutdown_rx: broadcast::Receiver<()>,
 ) -> Result<()> {
-    let source = crate::capture::create_activity_source();
+    let source = crate::capture::create_activity_source(config.url_capture);
     let idle_detector = crate::capture::create_idle_detector();
     let audio_source = crate::capture::create_audio_source(&config);
     run_with(

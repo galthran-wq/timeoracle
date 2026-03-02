@@ -23,6 +23,8 @@ pub trait AudioSource: Send + Sync {
 #[cfg(target_os = "linux")]
 pub mod linux_x11;
 #[cfg(target_os = "linux")]
+pub mod linux_url;
+#[cfg(target_os = "linux")]
 pub mod linux_wayland;
 #[cfg(all(target_os = "linux", feature = "audio"))]
 pub mod linux_audio;
@@ -32,11 +34,11 @@ pub mod macos;
 pub mod macos_audio;
 pub mod idle;
 
-pub fn create_activity_source() -> Box<dyn ActivitySource> {
+pub fn create_activity_source(url_capture: bool) -> Box<dyn ActivitySource> {
     #[cfg(target_os = "linux")]
     {
         if std::env::var("DISPLAY").is_ok() {
-            match linux_x11::X11Source::new() {
+            match linux_x11::X11Source::new(url_capture) {
                 Ok(source) => return Box::new(source),
                 Err(e) => {
                     tracing::warn!("Failed to create X11 source: {e}, trying Wayland");
@@ -48,7 +50,7 @@ pub fn create_activity_source() -> Box<dyn ActivitySource> {
 
     #[cfg(target_os = "macos")]
     {
-        Box::new(macos::MacOSSource::new())
+        Box::new(macos::MacOSSource::new(url_capture))
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]

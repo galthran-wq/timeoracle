@@ -13,12 +13,14 @@ use objc2_core_graphics::{
 
 static SCREEN_RECORDING_WARNED: AtomicBool = AtomicBool::new(false);
 
-pub struct MacOSSource;
+pub struct MacOSSource {
+    url_capture: bool,
+}
 
 impl MacOSSource {
-    pub fn new() -> Self {
+    pub fn new(url_capture: bool) -> Self {
         tracing::info!("macOS capture initialized (NSWorkspace + CGWindowList)");
-        Self
+        Self { url_capture }
     }
 
     fn get_frontmost_app(&self) -> Option<(String, i32)> {
@@ -98,6 +100,53 @@ fn cf_dict_get_string(dict: &CFDictionary, key: &CFString) -> Option<String> {
     Some(unsafe { &*(ptr as *const CFString) }.to_string())
 }
 
+fn get_browser_url(app_name: &str) -> Option<String> {
+    let script = jxa_url_script(app_name)?;
+    let output = std::process::Command::new("osascript")
+        .args(["-l", "JavaScript", "-e", &script])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let url = String::from_utf8(output.stdout).ok()?.trim().to_string();
+    if url.is_empty() {
+        return None;
+    }
+    Some(url)
+}
+
+fn jxa_url_script(app_name: &str) -> Option<String> {
+    let lower = app_name.to_lowercase();
+
+    if lower == "safari" {
+        return Some(format!(
+            "Application(\"{}\").windows[0].currentTab.url()",
+            app_name,
+        ));
+    }
+
+    let is_chromium = lower.contains("chrom")
+        || lower.contains("brave")
+        || lower.contains("edge")
+        || lower.contains("vivaldi")
+        || lower.contains("opera")
+        || lower.contains("arc");
+
+    if is_chromium {
+        return Some(format!(
+            "Application(\"{}\").windows[0].activeTab.url()",
+            app_name,
+        ));
+    }
+
+    None
+}
+
 impl ActivitySource for MacOSSource {
     fn get_active_window(&self) -> Result<Option<WindowInfo>> {
         let (app_name, pid) = match self.get_frontmost_app() {
@@ -107,10 +156,16 @@ impl ActivitySource for MacOSSource {
 
         let window_title = self.get_window_title_for_pid(pid).unwrap_or_default();
 
+        let url = if self.url_capture {
+            get_browser_url(&app_name)
+        } else {
+            None
+        };
+
         Ok(Some(WindowInfo {
             app_name,
             window_title,
-            url: None,
+            url,
         }))
     }
 }

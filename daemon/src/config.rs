@@ -33,6 +33,9 @@ pub struct Config {
 
     #[serde(default = "default_audio_capture")]
     pub audio_capture: bool,
+
+    #[serde(default = "default_url_capture")]
+    pub url_capture: bool,
 }
 
 fn default_server_url() -> String {
@@ -59,6 +62,9 @@ fn default_log_level() -> String {
 fn default_audio_capture() -> bool {
     true
 }
+fn default_url_capture() -> bool {
+    true
+}
 
 impl Default for Config {
     fn default() -> Self {
@@ -73,6 +79,7 @@ impl Default for Config {
             ignore_apps: Vec::new(),
             log_level: default_log_level(),
             audio_capture: default_audio_capture(),
+            url_capture: default_url_capture(),
         }
     }
 }
@@ -159,6 +166,7 @@ mod tests {
         assert_eq!(config.log_level, "info");
         assert!(config.auth_token.is_none());
         assert!(config.audio_capture);
+        assert!(config.url_capture);
     }
 
     #[test]
@@ -174,6 +182,7 @@ mod tests {
             ignore_apps: vec!["slack".into(), "discord".into()],
             log_level: "debug".into(),
             audio_capture: true,
+            url_capture: true,
         };
         let toml_str = toml::to_string_pretty(&config).unwrap();
         let parsed: Config = toml::from_str(&toml_str).unwrap();
