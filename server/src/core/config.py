@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     enable_cron_generation: bool = False
     enable_logfire: bool = False
     logfire_token: Optional[str] = None
+
+    telegram_bot_token: Optional[str] = None
+    telegram_bot_username: Optional[str] = None
+    telegram_webhook_secret: Optional[str] = None
+    public_base_url: Optional[str] = None
     
     @property
     def postgres_url(self) -> str:

@@ -15,6 +15,7 @@ import type { MenuOption } from 'naive-ui'
 import { InformationCircleOutline } from '@vicons/ionicons5'
 import type { SessionConfig } from '@/types/settings'
 import { getSessionConfig, updateSessionConfig } from '@/api/settings'
+import TelegramCard from '@/components/integrations/TelegramCard.vue'
 
 const message = useMessage()
 
@@ -32,6 +33,7 @@ const config = ref<SessionConfig>({ ...DEFAULTS })
 
 const tabOptions: MenuOption[] = [
   { label: 'Activity Sessions', key: 'sessions' },
+  { label: 'Integrations', key: 'integrations' },
 ]
 
 async function loadConfig() {
@@ -142,6 +144,9 @@ onMounted(loadConfig)
               </NSpace>
             </NSpace>
           </NCard>
+        </template>
+        <template v-else-if="activeTab === 'integrations'">
+          <TelegramCard />
         </template>
       </NSpin>
     </div>
