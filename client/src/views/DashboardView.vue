@@ -21,6 +21,7 @@ import { listEntries } from '@/api/timeline'
 import { listSessions } from '@/api/activity'
 import { getDaySummary, getDaySummaryTrends } from '@/api/daySummary'
 import { useDayAnalytics } from '@/composables/useDayAnalytics'
+import { usePolling } from '@/composables/usePolling'
 import { SESSION_PALETTE, CATEGORY_COLORS, SEMANTIC_COLORS } from '@/constants/palette'
 import { getLogicalToday } from '@/utils/dayBoundary'
 import type { TimelineEntry } from '@/types/timeline'
@@ -102,13 +103,13 @@ function trendDayLabel(dateStr: string): string {
   return format(d, 'EEE')
 }
 
-onMounted(async () => {
-  const authStore = useAuthStore()
-  const cfg = authStore.user?.session_config
-  const today = cfg ? getLogicalToday(cfg.day_start_hour, cfg.timezone) : format(new Date(), 'yyyy-MM-dd')
-  const yesterdayDate = format(subDays(new Date(today + 'T00:00:00'), 1), 'yyyy-MM-dd')
-  const weekAgo = format(subDays(new Date(today + 'T00:00:00'), 6), 'yyyy-MM-dd')
+const authStore = useAuthStore()
+const cfg = authStore.user?.session_config
+const today = cfg ? getLogicalToday(cfg.day_start_hour, cfg.timezone) : format(new Date(), 'yyyy-MM-dd')
+const yesterdayDate = format(subDays(new Date(today + 'T00:00:00'), 1), 'yyyy-MM-dd')
+const weekAgo = format(subDays(new Date(today + 'T00:00:00'), 6), 'yyyy-MM-dd')
 
+async function refreshAll() {
   await Promise.all([
     activityStore.fetchStatus(),
     listEntries({ date: today }).then((res) => {
@@ -121,8 +122,14 @@ onMounted(async () => {
     getDaySummary(yesterdayDate).then((s) => { yesterdaySummary.value = s }).catch(() => {}),
     getDaySummaryTrends(weekAgo, today).then((r) => { trendSummaries.value = r.summaries }).catch(() => {}),
   ])
+}
+
+onMounted(async () => {
+  await refreshAll()
   loading.value = false
 })
+
+usePolling(refreshAll, 60_000)
 </script>
 
 <template>

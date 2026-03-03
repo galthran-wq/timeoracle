@@ -14,6 +14,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { ApiError } from '@/api/client'
 import { createSessionLinesPlugin } from '@/plugins/sessionLines'
+import { usePolling } from '@/composables/usePolling'
 import ChatPanel from '@/components/ChatPanel.vue'
 import TimelineEntryForm from '@/components/TimelineEntryForm.vue'
 import TimeGridEvent from '@/components/TimeGridEvent.vue'
@@ -30,7 +31,8 @@ const authStore = useAuthStore()
 const themeStore = useThemeStore()
 
 const dayStartHour = authStore.user?.session_config?.day_start_hour ?? 0
-const dayBoundaryTime = `${String(dayStartHour).padStart(2, '0')}:00`
+const dayBoundaryStart = `${String(dayStartHour).padStart(2, '0')}:00`
+const dayBoundaryEnd = dayStartHour === 0 ? '24:00' : dayBoundaryStart
 
 const showForm = ref(false)
 const editingEntry = ref<TimelineEntry | null>(null)
@@ -89,7 +91,7 @@ const calendar = createCalendar({
   selectedDate: Temporal.PlainDate.from(timelineStore.selectedDate),
   isDark: themeStore.isDark,
   timezone: tz,
-  dayBoundaries: { start: dayBoundaryTime, end: dayBoundaryTime },
+  dayBoundaries: { start: dayBoundaryStart, end: dayBoundaryEnd },
   events: [],
   plugins: [dragAndDrop, eventResize, sessionLines, currentTime],
   calendars: {
@@ -187,6 +189,11 @@ onMounted(async () => {
     activityStore.fetchSessions(timelineStore.rangeStart, timelineStore.viewMode),
   ])
 })
+
+usePolling(() => {
+  timelineStore.fetchEntries()
+  activityStore.fetchSessions(timelineStore.rangeStart, timelineStore.viewMode)
+}, 60_000)
 
 async function handleSave(data: {
   label: string
