@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from datetime import date, datetime, time, timezone
 
 from pydantic import BaseModel, Field
@@ -119,6 +120,79 @@ async def get_existing_timeline(ctx: RunContext[AgentDeps], target_date: str) ->
     return result
 
 
+@dataclass
+class _TimeSlot:
+    start: datetime
+    end: datetime
+    label: str
+    is_proposed: bool
+    is_user_edited: bool
+
+
+def _detect_overlaps(
+    proposed: list[TimelineEntryBulkItem],
+    existing_untouched: list,
+) -> list[str]:
+    slots: list[_TimeSlot] = []
+
+    for item in proposed:
+        slots.append(_TimeSlot(
+            start=item.start_time,
+            end=item.end_time,
+            label=item.label or "Untitled",
+            is_proposed=True,
+            is_user_edited=False,
+        ))
+
+    for entry in existing_untouched:
+        slots.append(_TimeSlot(
+            start=entry.start_time,
+            end=entry.end_time,
+            label=entry.label or "Untitled",
+            is_proposed=False,
+            is_user_edited=getattr(entry, "edited_by_user", False),
+        ))
+
+    slots.sort(key=lambda s: s.start)
+
+    errors: list[str] = []
+    for i in range(len(slots) - 1):
+        a, b = slots[i], slots[i + 1]
+        if a.end <= b.start:
+            continue
+        if not a.is_proposed and not b.is_proposed:
+            continue
+
+        overlap_seconds = (min(a.end, b.end) - b.start).total_seconds()
+        overlap_min = int(overlap_seconds // 60)
+
+        a_start = a.start.strftime("%H:%M")
+        a_end = a.end.strftime("%H:%M")
+        b_start = b.start.strftime("%H:%M")
+        b_end = b.end.strftime("%H:%M")
+
+        if b.is_user_edited:
+            errors.append(
+                f"OVERLAP: '{a.label}' ({a_start}-{a_end}) overlaps with "
+                f"'{b.label}' ({b_start}-{b_end}, USER-EDITED, cannot be modified) "
+                f"by {overlap_min}min. You must adjust '{a.label}'."
+            )
+        elif a.is_user_edited:
+            errors.append(
+                f"OVERLAP: '{a.label}' ({a_start}-{a_end}, USER-EDITED, cannot be modified) "
+                f"overlaps with '{b.label}' ({b_start}-{b_end}) "
+                f"by {overlap_min}min. You must adjust '{b.label}'."
+            )
+        else:
+            errors.append(
+                f"OVERLAP: '{a.label}' ({a_start}-{a_end}) overlaps with "
+                f"'{b.label}' ({b_start}-{b_end}) "
+                f"by {overlap_min}min. Adjust end_time of '{a.label}' or start_time of '{b.label}'."
+            )
+
+    return errors
+
+
 async def save_timeline_entries(ctx: RunContext[AgentDeps], entries: list[TimelineEntry]) -> dict:
     await _emit(ctx, "tool_call", {"name": "save_timeline_entries", "args": {"count": len(entries)}})
 
@@ -156,6 +230,31 @@ async def save_timeline_entries(ctx: RunContext[AgentDeps], entries: list[Timeli
     if not bulk_items:
         await _emit(ctx, "tool_result", {"name": "save_timeline_entries", "summary": "No valid entries to save"})
         return {"created": 0, "updated": 0, "skipped": 0, "errors": ["No valid entries"]}
+
+    all_starts = [item.start_time for item in bulk_items]
+    all_ends = [item.end_time for item in bulk_items]
+    range_start = min(all_starts)
+    range_end = max(all_ends)
+
+    existing_entries = await ctx.deps.timeline_repo.get_by_time_range(
+        ctx.deps.user_id, range_start, range_end, limit=500, offset=0,
+    )
+
+    proposed_ids = {item.id for item in bulk_items if item.id is not None}
+    existing_untouched = [e for e in existing_entries if e.id not in proposed_ids]
+
+    overlaps = _detect_overlaps(bulk_items, existing_untouched)
+    if overlaps:
+        await _emit(ctx, "tool_result", {
+            "name": "save_timeline_entries",
+            "summary": f"Rejected: {len(overlaps)} overlapping entries",
+        })
+        return {
+            "created": 0,
+            "updated": 0,
+            "skipped": 0,
+            "errors": overlaps,
+        }
 
     created, updated, skipped, errors = await ctx.deps.timeline_repo.bulk_upsert(
         ctx.deps.user_id, bulk_items, chat_id=ctx.deps.chat_id,
