@@ -12,12 +12,23 @@ use std::sync::{Arc, Mutex};
 use tray_icon::TrayIconBuilder;
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+#[derive(Clone, Copy)]
+enum TrayAction {
+    Continue,
+    Quit,
+    Logout,
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 struct TrayState {
     pause_item: MenuItem,
     status_item: MenuItem,
     server_item: MenuItem,
+    #[allow(dead_code)]
+    login_item: MenuItem,
     pause_item_id: MenuId,
     stats_item_id: MenuId,
+    login_item_id: MenuId,
     quit_item_id: MenuId,
     is_paused: bool,
     cmd_tx: tokio::sync::mpsc::Sender<EngineCommand>,
@@ -60,6 +71,7 @@ fn build_tray() -> anyhow::Result<(
     let pause_item = MenuItem::new("Pause Tracking", true, None);
     let sync_item = MenuItem::new("Sync Now", false, None);
     let stats_item = MenuItem::new("Show Stats", true, None);
+    let login_item = MenuItem::new("Logout", true, None);
     let quit_item = MenuItem::new("Quit", true, None);
 
     menu.append(&status_item).ok();
@@ -68,6 +80,7 @@ fn build_tray() -> anyhow::Result<(
     menu.append(&pause_item).ok();
     menu.append(&sync_item).ok();
     menu.append(&stats_item).ok();
+    menu.append(&login_item).ok();
     menu.append(&PredefinedMenuItem::separator()).ok();
     menu.append(&quit_item).ok();
 
@@ -81,14 +94,17 @@ fn build_tray() -> anyhow::Result<(
 
     let pause_item_id = pause_item.id().clone();
     let stats_item_id = stats_item.id().clone();
+    let login_item_id = login_item.id().clone();
     let quit_item_id = quit_item.id().clone();
 
     let state = TrayState {
         pause_item,
         status_item,
         server_item,
+        login_item,
         pause_item_id,
         stats_item_id,
+        login_item_id,
         quit_item_id,
         is_paused: false,
         cmd_tx,
@@ -113,6 +129,7 @@ fn spawn_background_runtime(
 ) {
     let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
     let shutdown_tx = shutdown_tx.clone();
+    let server_connected = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     std::thread::spawn(move || {
         rt.block_on(async move {
@@ -122,8 +139,9 @@ fn spawn_background_runtime(
                 let config = config.clone();
                 let buffer = buffer.clone();
                 let shutdown_rx = shutdown_tx.subscribe();
+                let server_connected = server_connected.clone();
                 tokio::spawn(async move {
-                    crate::engine::run(config, buffer, cmd_rx, status_tx, shutdown_rx).await
+                    crate::engine::run(config, buffer, cmd_rx, status_tx, shutdown_rx, server_connected).await
                 })
             };
 
@@ -131,8 +149,9 @@ fn spawn_background_runtime(
                 let config = config.clone();
                 let buffer = buffer.clone();
                 let shutdown_rx = shutdown_tx.subscribe();
+                let server_connected = server_connected.clone();
                 tokio::spawn(async move {
-                    crate::sync::run(config, buffer, shutdown_rx).await
+                    crate::sync::run(config, buffer, shutdown_rx, server_connected).await
                 })
             };
 
@@ -146,7 +165,7 @@ fn spawn_background_runtime(
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-fn poll_and_update(state: &mut TrayState) -> bool {
+fn poll_and_update(state: &mut TrayState) -> TrayAction {
     if let Ok(event) = muda::MenuEvent::receiver().try_recv() {
         if event.id == state.pause_item_id {
             state.is_paused = !state.is_paused;
@@ -159,9 +178,12 @@ fn poll_and_update(state: &mut TrayState) -> bool {
             }
         } else if event.id == state.stats_item_id {
             state.stats_window.show();
+        } else if event.id == state.login_item_id {
+            let _ = state.shutdown_tx.send(());
+            return TrayAction::Logout;
         } else if event.id == state.quit_item_id {
             let _ = state.shutdown_tx.send(());
-            return false;
+            return TrayAction::Quit;
         }
     }
 
@@ -178,18 +200,19 @@ fn poll_and_update(state: &mut TrayState) -> bool {
 
     state.stats_window.update(&status);
 
-    true
+    TrayAction::Continue
 }
 
 #[cfg(target_os = "macos")]
 mod macos_login {
     use crate::config::Config;
     use objc2::rc::Retained;
+    use objc2::sel;
     use objc2::MainThreadOnly;
     use objc2_app_kit::{
         NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSButton, NSColor,
-        NSEvent, NSEventMask, NSFont, NSSecureTextField, NSTextField, NSWindow,
-        NSWindowStyleMask,
+        NSEvent, NSEventMask, NSFont, NSMenu, NSMenuItem, NSSecureTextField, NSTextField,
+        NSWindow, NSWindowStyleMask,
     };
     use objc2_foundation::{
         MainThreadMarker, NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, NSString,
@@ -201,12 +224,74 @@ mod macos_login {
         Error(String),
     }
 
+    fn install_edit_menu(mtm: MainThreadMarker) {
+        let app = NSApplication::sharedApplication(mtm);
+
+        let main_menu = NSMenu::new(mtm);
+
+        let edit_menu = unsafe {
+            NSMenu::initWithTitle(NSMenu::alloc(mtm), &NSString::from_str("Edit"))
+        };
+
+        let cut = unsafe {
+            NSMenuItem::initWithTitle_action_keyEquivalent(
+                NSMenuItem::alloc(mtm),
+                &NSString::from_str("Cut"),
+                Some(sel!(cut:)),
+                &NSString::from_str("x"),
+            )
+        };
+        let copy = unsafe {
+            NSMenuItem::initWithTitle_action_keyEquivalent(
+                NSMenuItem::alloc(mtm),
+                &NSString::from_str("Copy"),
+                Some(sel!(copy:)),
+                &NSString::from_str("c"),
+            )
+        };
+        let paste = unsafe {
+            NSMenuItem::initWithTitle_action_keyEquivalent(
+                NSMenuItem::alloc(mtm),
+                &NSString::from_str("Paste"),
+                Some(sel!(paste:)),
+                &NSString::from_str("v"),
+            )
+        };
+        let select_all = unsafe {
+            NSMenuItem::initWithTitle_action_keyEquivalent(
+                NSMenuItem::alloc(mtm),
+                &NSString::from_str("Select All"),
+                Some(sel!(selectAll:)),
+                &NSString::from_str("a"),
+            )
+        };
+
+        edit_menu.addItem(&cut);
+        edit_menu.addItem(&copy);
+        edit_menu.addItem(&paste);
+        edit_menu.addItem(&select_all);
+
+        let edit_menu_item = unsafe {
+            NSMenuItem::initWithTitle_action_keyEquivalent(
+                NSMenuItem::alloc(mtm),
+                &NSString::from_str("Edit"),
+                None,
+                &NSString::from_str(""),
+            )
+        };
+        edit_menu_item.setSubmenu(Some(&edit_menu));
+
+        main_menu.addItem(&edit_menu_item);
+        app.setMainMenu(Some(&main_menu));
+    }
+
     pub fn show_login_and_wait(config: &Config) -> anyhow::Result<Config> {
         let mtm = MainThreadMarker::new()
             .ok_or_else(|| anyhow::anyhow!("must be called from the main thread"))?;
 
         let app = NSApplication::sharedApplication(mtm);
         app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+        install_edit_menu(mtm);
 
         let window = unsafe {
             NSWindow::initWithContentRect_styleMask_backing_defer(
@@ -292,7 +377,6 @@ mod macos_login {
         window.makeKeyAndOrderFront(None);
         #[allow(deprecated)]
         app.activateIgnoringOtherApps(true);
-        app.finishLaunching();
 
         let (tx, rx) = mpsc::channel::<LoginResult>();
         let mut login_pending = false;
@@ -309,34 +393,38 @@ mod macos_login {
                 mode,
                 true,
             );
+
+            let mut mouse_down_on_btn = false;
+            if !login_pending && !was_btn_pressed {
+                if let Some(ref event) = event {
+                    let event_type = unsafe { event.r#type() };
+                    if event_type == objc2_app_kit::NSEventType::LeftMouseDown {
+                        let loc = event.locationInWindow();
+                        let content_view = unsafe { window.contentView() }.unwrap();
+                        let pt = content_view.convertPoint_fromView(loc, None);
+                        let btn_frame = login_btn.frame();
+                        if pt.x >= btn_frame.origin.x
+                            && pt.x <= btn_frame.origin.x + btn_frame.size.width
+                            && pt.y >= btn_frame.origin.y
+                            && pt.y <= btn_frame.origin.y + btn_frame.size.height
+                        {
+                            mouse_down_on_btn = true;
+                        }
+                    }
+                }
+            }
+
             if let Some(ref event) = event {
                 app.sendEvent(event);
+            }
+
+            if mouse_down_on_btn {
+                was_btn_pressed = true;
             }
 
             if !window.isVisible() {
                 quit = true;
                 break;
-            }
-
-            if !login_pending && !was_btn_pressed {
-                let mouse_loc = unsafe { NSEvent::mouseLocation() };
-                let btn_frame = login_btn.frame();
-                let win_frame = window.frame();
-                let abs_x = mouse_loc.x - win_frame.origin.x;
-                let abs_y = mouse_loc.y - win_frame.origin.y;
-                let content_y = abs_y;
-
-                if let Some(ref event) = event {
-                    let event_type = unsafe { event.r#type() };
-                    if event_type == objc2_app_kit::NSEventType::LeftMouseUp
-                        && abs_x >= btn_frame.origin.x
-                        && abs_x <= btn_frame.origin.x + btn_frame.size.width
-                        && content_y >= btn_frame.origin.y
-                        && content_y <= btn_frame.origin.y + btn_frame.size.height
-                    {
-                        was_btn_pressed = true;
-                    }
-                }
             }
 
             if was_btn_pressed && !login_pending {
@@ -777,77 +865,105 @@ mod linux_stats {
 }
 
 #[cfg(target_os = "linux")]
-pub fn run(config: Config) -> anyhow::Result<()> {
+pub fn run(mut config: Config) -> anyhow::Result<()> {
     gtk::init().map_err(|e| anyhow::anyhow!("GTK init failed: {e}"))?;
 
-    let config = if config.auth_token.is_none() {
-        linux_login::show_login_and_wait(&config)?
-    } else {
-        config
-    };
-
-    let (mut state, cmd_rx, status_tx, buffer, _tray) = build_tray()?;
-    spawn_background_runtime(config, buffer, cmd_rx, status_tx, &state.shutdown_tx);
-
-    state.stats_window.init();
-
-    gtk::glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
-        if poll_and_update(&mut state) {
-            gtk::glib::ControlFlow::Continue
-        } else {
-            gtk::main_quit();
-            gtk::glib::ControlFlow::Break
+    loop {
+        if config.auth_token.is_none() {
+            config = linux_login::show_login_and_wait(&config)?;
         }
-    });
 
-    gtk::main();
+        let (mut state, cmd_rx, status_tx, buffer, _tray) = build_tray()?;
+        spawn_background_runtime(config.clone(), buffer, cmd_rx, status_tx, &state.shutdown_tx);
+        state.stats_window.init();
+
+        let action = std::rc::Rc::new(std::cell::Cell::new(TrayAction::Quit));
+        let action_clone = action.clone();
+
+        gtk::glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+            match poll_and_update(&mut state) {
+                TrayAction::Continue => gtk::glib::ControlFlow::Continue,
+                TrayAction::Quit => {
+                    action_clone.set(TrayAction::Quit);
+                    gtk::main_quit();
+                    gtk::glib::ControlFlow::Break
+                }
+                TrayAction::Logout => {
+                    action_clone.set(TrayAction::Logout);
+                    gtk::main_quit();
+                    gtk::glib::ControlFlow::Break
+                }
+            }
+        });
+
+        gtk::main();
+
+        match action.get() {
+            TrayAction::Quit => break,
+            TrayAction::Logout => {
+                std::thread::sleep(std::time::Duration::from_millis(200));
+                config.auth_token = None;
+                let config_path = Config::default_config_path()?;
+                config.save(&config_path)?;
+            }
+            TrayAction::Continue => unreachable!(),
+        }
+    }
+
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
-pub fn run(config: Config) -> anyhow::Result<()> {
+pub fn run(mut config: Config) -> anyhow::Result<()> {
     use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSEventMask};
     use objc2_foundation::{MainThreadMarker, NSDate, NSDefaultRunLoopMode, NSRunLoop};
-
-    let needs_login = config.auth_token.is_none();
-    let config = if needs_login {
-        macos_login::show_login_and_wait(&config)?
-    } else {
-        config
-    };
 
     let mtm = MainThreadMarker::new()
         .ok_or_else(|| anyhow::anyhow!("must be called from the main thread"))?;
 
     let app = NSApplication::sharedApplication(mtm);
     app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
-
-    let (mut state, cmd_rx, status_tx, buffer, _tray) = build_tray()?;
-    spawn_background_runtime(config, buffer, cmd_rx, status_tx, &state.shutdown_tx);
-
-    state.stats_window.init(mtm);
-
-    if !needs_login {
-        app.finishLaunching();
-    }
+    app.finishLaunching();
 
     let mode = unsafe { NSDefaultRunLoopMode };
     let run_loop = NSRunLoop::currentRunLoop();
 
     loop {
-        let expiration = NSDate::dateWithTimeIntervalSinceNow(0.1);
-        let event = app.nextEventMatchingMask_untilDate_inMode_dequeue(
-            NSEventMask::Any,
-            Some(&expiration),
-            mode,
-            true,
-        );
-        if let Some(ref event) = event {
-            app.sendEvent(event);
+        if config.auth_token.is_none() {
+            config = macos_login::show_login_and_wait(&config)?;
         }
-        run_loop.runMode_beforeDate(mode, &expiration);
-        if !poll_and_update(&mut state) {
-            break;
+
+        let (mut state, cmd_rx, status_tx, buffer, _tray) = build_tray()?;
+        spawn_background_runtime(config.clone(), buffer, cmd_rx, status_tx, &state.shutdown_tx);
+        state.stats_window.init(mtm);
+
+        let action = loop {
+            let expiration = NSDate::dateWithTimeIntervalSinceNow(0.1);
+            let event = app.nextEventMatchingMask_untilDate_inMode_dequeue(
+                NSEventMask::Any,
+                Some(&expiration),
+                mode,
+                true,
+            );
+            if let Some(ref event) = event {
+                app.sendEvent(event);
+            }
+            run_loop.runMode_beforeDate(mode, &expiration);
+            match poll_and_update(&mut state) {
+                TrayAction::Continue => {}
+                other => break other,
+            }
+        };
+
+        match action {
+            TrayAction::Quit => break,
+            TrayAction::Logout => {
+                std::thread::sleep(std::time::Duration::from_millis(200));
+                config.auth_token = None;
+                let config_path = Config::default_config_path()?;
+                config.save(&config_path)?;
+            }
+            TrayAction::Continue => unreachable!(),
         }
     }
 

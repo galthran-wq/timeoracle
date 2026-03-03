@@ -80,6 +80,7 @@ pub async fn run(
     config: Config,
     buffer: Arc<Mutex<EventBuffer>>,
     mut shutdown_rx: broadcast::Receiver<()>,
+    server_connected: std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<()> {
     let client = reqwest::Client::new();
     let flush_interval = tokio::time::Duration::from_secs(config.flush_interval_secs);
@@ -112,14 +113,17 @@ pub async fn run(
                         if flushed > 0 {
                             tracing::info!("Flushed {flushed} events to server");
                         }
+                        server_connected.store(true, std::sync::atomic::Ordering::Relaxed);
                         backoff_secs = 0;
                     }
                     Err(DaemonError::TokenExpired) => {
                         tracing::warn!("Auth token expired — please re-login");
+                        server_connected.store(false, std::sync::atomic::Ordering::Relaxed);
                         backoff_secs = MAX_BACKOFF_SECS;
                     }
                     Err(e) => {
                         tracing::warn!("Sync failed: {e}");
+                        server_connected.store(false, std::sync::atomic::Ordering::Relaxed);
                         backoff_secs = std::cmp::min(
                             if backoff_secs == 0 { 1 } else { backoff_secs * 2 },
                             MAX_BACKOFF_SECS,

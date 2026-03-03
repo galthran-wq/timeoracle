@@ -87,12 +87,15 @@ fn run_headless(config: Config) -> anyhow::Result<()> {
             buffer::EventBuffer::open(&buffer_path)?,
         ));
 
+        let server_connected = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+
         let engine_handle = {
             let config = config.clone();
             let buffer = buffer.clone();
             let shutdown_rx = shutdown_tx.subscribe();
+            let server_connected = server_connected.clone();
             tokio::spawn(async move {
-                engine::run(config, buffer, cmd_rx, status_tx, shutdown_rx).await
+                engine::run(config, buffer, cmd_rx, status_tx, shutdown_rx, server_connected).await
             })
         };
 
@@ -100,8 +103,9 @@ fn run_headless(config: Config) -> anyhow::Result<()> {
             let config = config.clone();
             let buffer = buffer.clone();
             let shutdown_rx = shutdown_tx.subscribe();
+            let server_connected = server_connected.clone();
             tokio::spawn(async move {
-                sync::run(config, buffer, shutdown_rx).await
+                sync::run(config, buffer, shutdown_rx, server_connected).await
             })
         };
 

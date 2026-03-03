@@ -3,6 +3,7 @@ use crate::capture::{ActivitySource, AudioSource, IdleDetector};
 use crate::config::Config;
 use crate::error::Result;
 use crate::events::{ActivityEvent, AudioInfo, WindowInfo};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, mpsc, watch};
@@ -46,6 +47,7 @@ pub async fn run(
     mut cmd_rx: mpsc::Receiver<EngineCommand>,
     status_tx: watch::Sender<DaemonStatus>,
     mut shutdown_rx: broadcast::Receiver<()>,
+    server_connected: Arc<AtomicBool>,
 ) -> Result<()> {
     let source = crate::capture::create_activity_source(config.url_capture);
     let idle_detector = crate::capture::create_idle_detector();
@@ -59,6 +61,7 @@ pub async fn run(
         &mut cmd_rx,
         &status_tx,
         &mut shutdown_rx,
+        &server_connected,
     )
     .await
 }
@@ -72,6 +75,7 @@ pub async fn run_with(
     cmd_rx: &mut mpsc::Receiver<EngineCommand>,
     status_tx: &watch::Sender<DaemonStatus>,
     shutdown_rx: &mut broadcast::Receiver<()>,
+    server_connected: &Arc<AtomicBool>,
 ) -> Result<()> {
     let mut paused = false;
     let mut was_idle = false;
@@ -93,12 +97,12 @@ pub async fn run_with(
                 match cmd {
                     EngineCommand::Pause => {
                         paused = true;
-                        update_status(status_tx, &buffer, DaemonState::Paused);
+                        update_status(status_tx, &buffer, DaemonState::Paused, server_connected);
                         tracing::info!("Engine paused");
                     }
                     EngineCommand::Resume => {
                         paused = false;
-                        update_status(status_tx, &buffer, DaemonState::Capturing);
+                        update_status(status_tx, &buffer, DaemonState::Capturing, server_connected);
                         tracing::info!("Engine resumed");
                     }
                     EngineCommand::Quit => {
@@ -124,7 +128,7 @@ pub async fn run_with(
                     idle_started_at = Some(idle_start);
                     let event = ActivityEvent::idle_start();
                     store_event(&buffer, &event);
-                    update_status(status_tx, &buffer, DaemonState::Idle);
+                    update_status(status_tx, &buffer, DaemonState::Idle, server_connected);
                     tracing::debug!("User went idle ({idle_secs}s)");
                     continue;
                 }
@@ -139,7 +143,7 @@ pub async fn run_with(
                     store_event(&buffer, &event);
                     last_window = None;
                     last_change_time = Instant::now();
-                    update_status(status_tx, &buffer, DaemonState::Capturing);
+                    update_status(status_tx, &buffer, DaemonState::Capturing, server_connected);
                     tracing::debug!("User returned from idle");
                 }
 
@@ -182,7 +186,7 @@ pub async fn run_with(
                     store_event(&buffer, &event);
                     last_window = Some(window);
                     last_change_time = Instant::now();
-                    update_status(status_tx, &buffer, DaemonState::Capturing);
+                    update_status(status_tx, &buffer, DaemonState::Capturing, server_connected);
                 } else {
                     let elapsed = last_change_time.elapsed().as_secs();
                     if elapsed >= config.heartbeat_interval_secs {
@@ -227,12 +231,13 @@ fn update_status(
     status_tx: &watch::Sender<DaemonStatus>,
     buffer: &Arc<Mutex<EventBuffer>>,
     state: DaemonState,
+    server_connected: &Arc<AtomicBool>,
 ) {
     let events_buffered = buffer.lock().ok().and_then(|b| b.count().ok()).unwrap_or(0);
     let _ = status_tx.send(DaemonStatus {
         state,
         events_buffered,
-        server_connected: false,
+        server_connected: server_connected.load(Ordering::Relaxed),
         auth_ok: true,
         ..Default::default()
     });
@@ -308,6 +313,7 @@ mod tests {
                 &mut cmd_rx,
                 &status_tx,
                 &mut shutdown_rx,
+                &Arc::new(AtomicBool::new(false)),
             )
             .await
         });
@@ -354,6 +360,7 @@ mod tests {
                 &mut cmd_rx,
                 &status_tx,
                 &mut shutdown_rx,
+                &Arc::new(AtomicBool::new(false)),
             )
             .await
         });
@@ -405,6 +412,7 @@ mod tests {
                 &mut cmd_rx,
                 &status_tx,
                 &mut shutdown_rx,
+                &Arc::new(AtomicBool::new(false)),
             )
             .await
         });
@@ -460,6 +468,7 @@ mod tests {
                 &mut cmd_rx,
                 &status_tx,
                 &mut shutdown_rx,
+                &Arc::new(AtomicBool::new(false)),
             )
             .await
         });
@@ -529,6 +538,7 @@ mod tests {
                 &mut cmd_rx,
                 &status_tx,
                 &mut shutdown_rx,
+                &Arc::new(AtomicBool::new(false)),
             )
             .await
         });
@@ -585,6 +595,7 @@ mod tests {
                 &mut cmd_rx,
                 &status_tx,
                 &mut shutdown_rx,
+                &Arc::new(AtomicBool::new(false)),
             )
             .await
         });
@@ -641,6 +652,7 @@ mod tests {
                 &mut cmd_rx,
                 &status_tx,
                 &mut shutdown_rx,
+                &Arc::new(AtomicBool::new(false)),
             )
             .await
         });
@@ -699,6 +711,7 @@ mod tests {
                 &mut cmd_rx,
                 &status_tx,
                 &mut shutdown_rx,
+                &Arc::new(AtomicBool::new(false)),
             )
             .await
         });

@@ -1,3 +1,15 @@
 #!/bin/bash
+set -euo pipefail
+
+BINARY="/Applications/digitalgulag.app/Contents/MacOS/digitalgulag-daemon"
+SYMLINK="/usr/local/bin/digitalgulag-daemon"
+
+if [ ! -f "$BINARY" ]; then
+    echo "Warning: $BINARY not found, skipping CLI symlink" >&2
+    exit 0
+fi
+
 mkdir -p /usr/local/bin
-ln -sf /Applications/digitalgulag.app/Contents/MacOS/digitalgulag-daemon /usr/local/bin/digitalgulag-daemon
+ln -sf "$BINARY" "$SYMLINK"
+
+exit 0

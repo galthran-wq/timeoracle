@@ -2,7 +2,11 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "digitalgulag-daemon", about = "digitalgulag activity tracking daemon", version)]
+#[command(
+    name = "digitalgulag-daemon",
+    about = "digitalgulag activity tracking daemon",
+    version = env!("DAEMON_VERSION"),
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Command>,
