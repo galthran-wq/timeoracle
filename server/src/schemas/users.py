@@ -41,6 +41,7 @@ def _validate_classification_rules(v: Optional[list[str]]) -> Optional[list[str]
 class CategoryConfig(BaseModel):
     color: str
     type: str = "neutral"
+    deprecated: bool = False
 
     @field_validator("color")
     @classmethod

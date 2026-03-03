@@ -29,6 +29,8 @@ def build_system_prompt(
     category_lines = []
     for name, cfg in cats.items():
         if isinstance(cfg, dict):
+            if cfg.get("deprecated", False):
+                continue
             color = cfg.get("color", "#6B7280")
             cat_type = cfg.get("type", "neutral")
         else:

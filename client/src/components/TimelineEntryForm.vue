@@ -46,7 +46,9 @@ const auth = useAuthStore()
 const defaultCategories = ref<Record<string, CategoryConfig>>({})
 const categories = computed(() => auth.user?.session_config?.categories ?? defaultCategories.value)
 const categoryOptions = computed(() =>
-  Object.keys(categories.value).map((name) => ({ label: name, value: name })),
+  Object.entries(categories.value)
+    .filter(([, cfg]) => !cfg.deprecated)
+    .map(([name]) => ({ label: name, value: name })),
 )
 
 getDefaultCategories().then((d) => { defaultCategories.value = d }).catch(() => {})

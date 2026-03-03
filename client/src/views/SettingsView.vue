@@ -12,6 +12,7 @@ import {
   NIcon,
   NInput,
   NColorPicker,
+  NText,
   useMessage,
 } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
@@ -110,8 +111,14 @@ function addCategory() {
   newCatType.value = 'neutral'
 }
 
-function deleteCategory(name: string) {
-  delete editingCategories.value[name]
+function deprecateCategory(name: string) {
+  editingCategories.value[name] = { ...editingCategories.value[name], deprecated: true }
+  editingCategories.value = { ...editingCategories.value }
+}
+
+function restoreCategory(name: string) {
+  const { deprecated: _, ...rest } = editingCategories.value[name] as CategoryConfig & { deprecated?: boolean }
+  editingCategories.value[name] = rest as CategoryConfig
   editingCategories.value = { ...editingCategories.value }
 }
 
@@ -313,26 +320,33 @@ onMounted(loadConfig)
                 v-for="(cfg, name) in editingCategories"
                 :key="name"
                 class="category-row"
+                :class="{ deprecated: cfg.deprecated }"
               >
                 <span class="color-swatch" :style="{ backgroundColor: cfg.color }" />
                 <span class="category-name">{{ name }}</span>
-                <NSelect
-                  :value="cfg.type"
-                  :options="categoryTypeOptions"
-                  size="small"
-                  style="width: 130px"
-                  @update:value="(v: CategoryConfig['type']) => (cfg.type = v)"
-                />
-                <NColorPicker
-                  :value="cfg.color"
-                  :modes="['hex']"
-                  size="small"
-                  style="width: 80px"
-                  @update:value="(v: string) => (cfg.color = v)"
-                />
-                <NButton text size="small" @click="deleteCategory(name as string)">
-                  <template #icon><NIcon :size="16"><TrashOutline /></NIcon></template>
-                </NButton>
+                <template v-if="!cfg.deprecated">
+                  <NSelect
+                    :value="cfg.type"
+                    :options="categoryTypeOptions"
+                    size="small"
+                    style="width: 130px"
+                    @update:value="(v: CategoryConfig['type']) => (cfg.type = v)"
+                  />
+                  <NColorPicker
+                    :value="cfg.color"
+                    :modes="['hex']"
+                    size="small"
+                    style="width: 80px"
+                    @update:value="(v: string) => (cfg.color = v)"
+                  />
+                  <NButton text size="small" @click="deprecateCategory(name as string)">
+                    <template #icon><NIcon :size="16"><TrashOutline /></NIcon></template>
+                  </NButton>
+                </template>
+                <template v-else>
+                  <NText depth="3" style="flex: 1; font-style: italic">hidden</NText>
+                  <NButton text size="small" @click="restoreCategory(name as string)">Restore</NButton>
+                </template>
               </div>
 
               <div class="category-row add-row">
@@ -441,6 +455,10 @@ onMounted(loadConfig)
   display: flex;
   align-items: center;
   gap: var(--to-space-sm);
+}
+
+.category-row.deprecated {
+  opacity: 0.5;
 }
 
 .category-row .color-swatch {
