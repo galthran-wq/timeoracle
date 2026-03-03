@@ -38,7 +38,9 @@ class TestBuildSystemPrompt:
     def test_includes_labeling_rules(self):
         prompt = build_system_prompt()
         assert "edited_by_user" in prompt
-        assert "overlapping" in prompt
+        assert "non-overlapping" in prompt
+        assert "REJECT" in prompt
+        assert "absorbed" in prompt
         assert "confidence" in prompt
 
     def test_custom_categories(self):

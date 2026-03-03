@@ -47,7 +47,7 @@ class TimelineEntryRepositoryInterface(ABC):
     @abstractmethod
     async def get_by_time_range(
         self, user_id: UUID, start_dt: datetime, end_dt: datetime,
-        limit: int, offset: int, category: Optional[str] = None,
+        limit: int, offset: int, category: Optional[str] = None, include_overlap: bool = False,
     ) -> list[TimelineEntryModel]:
         pass
 
@@ -139,15 +139,21 @@ class TimelineEntryRepository(TimelineEntryRepositoryInterface):
 
     async def get_by_time_range(
         self, user_id: UUID, start_dt: datetime, end_dt: datetime,
-        limit: int, offset: int, category: Optional[str] = None,
+        limit: int, offset: int, category: Optional[str] = None, include_overlap: bool = False,
     ) -> list[TimelineEntryModel]:
-        query = (
-            select(TimelineEntryModel)
-            .where(
-                TimelineEntryModel.user_id == user_id,
+        query = select(TimelineEntryModel).where(TimelineEntryModel.user_id == user_id)
+        if include_overlap:
+            query = query.where(
+                TimelineEntryModel.start_time < end_dt,
+                TimelineEntryModel.end_time > start_dt,
+            )
+        else:
+            query = query.where(
                 TimelineEntryModel.start_time >= start_dt,
                 TimelineEntryModel.start_time < end_dt,
             )
+        query = (
+            query
             .order_by(TimelineEntryModel.start_time.asc())
             .limit(limit)
             .offset(offset)

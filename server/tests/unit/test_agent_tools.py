@@ -8,10 +8,12 @@ import pytest
 from src.agent.deps import AgentDeps
 from src.agent.tools import (
     TimelineEntry,
+    _detect_overlaps,
     get_activity_sessions,
     get_existing_timeline,
     save_timeline_entries,
 )
+from src.schemas.timeline_entries import TimelineEntryBulkItem
 
 
 @dataclass
@@ -249,3 +251,177 @@ class TestSaveTimelineEntries:
         call_args = ctx.deps.timeline_repo.bulk_upsert.call_args
         bulk_item = call_args[0][1][0]
         assert bulk_item.id == entry_id
+
+
+@dataclass
+class FakeExistingEntry:
+    id: uuid.UUID
+    label: str
+    start_time: datetime
+    end_time: datetime
+    edited_by_user: bool = False
+
+
+def _bulk_item(label, start_h, start_m, end_h, end_m, entry_id=None):
+    return TimelineEntryBulkItem(
+        id=entry_id,
+        date=date(2026, 3, 1),
+        start_time=datetime(2026, 3, 1, start_h, start_m, tzinfo=timezone.utc),
+        end_time=datetime(2026, 3, 1, end_h, end_m, tzinfo=timezone.utc),
+        label=label,
+    )
+
+
+class TestDetectOverlaps:
+    def test_no_overlaps(self):
+        items = [
+            _bulk_item("Coding", 9, 0, 10, 0),
+            _bulk_item("Email", 10, 0, 11, 0),
+        ]
+        assert _detect_overlaps(items, []) == []
+
+    def test_adjacent_entries_ok(self):
+        items = [
+            _bulk_item("Coding", 9, 0, 10, 0),
+            _bulk_item("Email", 10, 0, 11, 0),
+        ]
+        assert _detect_overlaps(items, []) == []
+
+    def test_gap_between_entries_ok(self):
+        items = [
+            _bulk_item("Coding", 9, 0, 10, 0),
+            _bulk_item("Email", 10, 30, 11, 0),
+        ]
+        assert _detect_overlaps(items, []) == []
+
+    def test_detects_overlap_between_proposed(self):
+        items = [
+            _bulk_item("Coding", 9, 0, 10, 30),
+            _bulk_item("Email", 10, 0, 11, 0),
+        ]
+        errors = _detect_overlaps(items, [])
+        assert len(errors) == 1
+        assert "Coding" in errors[0]
+        assert "Email" in errors[0]
+        assert "OVERLAP" in errors[0]
+
+    def test_detects_overlap_with_existing_untouched(self):
+        proposed = [_bulk_item("Coding", 9, 0, 10, 30)]
+        existing = [FakeExistingEntry(
+            id=uuid.uuid4(),
+            label="Meeting",
+            start_time=datetime(2026, 3, 1, 10, 0, tzinfo=timezone.utc),
+            end_time=datetime(2026, 3, 1, 11, 0, tzinfo=timezone.utc),
+        )]
+        errors = _detect_overlaps(proposed, existing)
+        assert len(errors) == 1
+        assert "Coding" in errors[0]
+        assert "Meeting" in errors[0]
+
+    def test_ignores_overlap_between_two_existing(self):
+        existing = [
+            FakeExistingEntry(
+                id=uuid.uuid4(), label="A",
+                start_time=datetime(2026, 3, 1, 9, 0, tzinfo=timezone.utc),
+                end_time=datetime(2026, 3, 1, 10, 30, tzinfo=timezone.utc),
+            ),
+            FakeExistingEntry(
+                id=uuid.uuid4(), label="B",
+                start_time=datetime(2026, 3, 1, 10, 0, tzinfo=timezone.utc),
+                end_time=datetime(2026, 3, 1, 11, 0, tzinfo=timezone.utc),
+            ),
+        ]
+        proposed = [_bulk_item("Coding", 12, 0, 13, 0)]
+        assert _detect_overlaps(proposed, existing) == []
+
+    def test_user_edited_entry_message(self):
+        proposed = [_bulk_item("Coding", 9, 0, 10, 30)]
+        existing = [FakeExistingEntry(
+            id=uuid.uuid4(),
+            label="Meeting",
+            start_time=datetime(2026, 3, 1, 10, 0, tzinfo=timezone.utc),
+            end_time=datetime(2026, 3, 1, 11, 0, tzinfo=timezone.utc),
+            edited_by_user=True,
+        )]
+        errors = _detect_overlaps(proposed, existing)
+        assert len(errors) == 1
+        assert "USER-EDITED" in errors[0]
+        assert "cannot be modified" in errors[0]
+        assert "You must adjust 'Coding'" in errors[0]
+
+    def test_overlap_includes_duration(self):
+        items = [
+            _bulk_item("Coding", 9, 0, 10, 30),
+            _bulk_item("Email", 10, 0, 11, 0),
+        ]
+        errors = _detect_overlaps(items, [])
+        assert "30min" in errors[0]
+
+
+class TestSaveTimelineEntriesOverlapValidation:
+    async def test_rejects_overlapping_new_entries(self):
+        ctx = _make_ctx()
+        entries = [
+            TimelineEntry(
+                date="2026-03-01",
+                start_time="2026-03-01T09:00:00+00:00",
+                end_time="2026-03-01T10:30:00+00:00",
+                label="Coding",
+            ),
+            TimelineEntry(
+                date="2026-03-01",
+                start_time="2026-03-01T10:00:00+00:00",
+                end_time="2026-03-01T11:00:00+00:00",
+                label="Email",
+            ),
+        ]
+        result = await save_timeline_entries(ctx, entries)
+        assert result["created"] == 0
+        assert len(result["errors"]) > 0
+        assert "Coding" in result["errors"][0]
+        assert "Email" in result["errors"][0]
+        ctx.deps.timeline_repo.bulk_upsert.assert_not_called()
+
+    async def test_accepts_non_overlapping_entries(self):
+        ctx = _make_ctx(bulk_upsert_result=(2, 0, 0, []))
+        entries = [
+            TimelineEntry(
+                date="2026-03-01",
+                start_time="2026-03-01T09:00:00+00:00",
+                end_time="2026-03-01T10:00:00+00:00",
+                label="Coding",
+            ),
+            TimelineEntry(
+                date="2026-03-01",
+                start_time="2026-03-01T10:00:00+00:00",
+                end_time="2026-03-01T11:00:00+00:00",
+                label="Email",
+            ),
+        ]
+        result = await save_timeline_entries(ctx, entries)
+        assert result["created"] == 2
+        ctx.deps.timeline_repo.bulk_upsert.assert_called_once()
+
+    async def test_rejects_overlap_with_existing_db_entry(self):
+        existing_id = uuid.uuid4()
+        existing_entry = FakeExistingEntry(
+            id=existing_id,
+            label="Meeting",
+            start_time=datetime(2026, 3, 1, 10, 0, tzinfo=timezone.utc),
+            end_time=datetime(2026, 3, 1, 11, 0, tzinfo=timezone.utc),
+        )
+        ctx = _make_ctx()
+        ctx.deps.timeline_repo.get_by_time_range = AsyncMock(return_value=[existing_entry])
+
+        entries = [
+            TimelineEntry(
+                date="2026-03-01",
+                start_time="2026-03-01T10:30:00+00:00",
+                end_time="2026-03-01T11:30:00+00:00",
+                label="Coding",
+            ),
+        ]
+        result = await save_timeline_entries(ctx, entries)
+        assert result["created"] == 0
+        assert len(result["errors"]) > 0
+        ctx.deps.timeline_repo.bulk_upsert.assert_not_called()

@@ -89,10 +89,13 @@ The type (productive/neutral/distraction) indicates how this category affects th
 
 ## Important rules
 
-- NEVER overwrite entries where edited_by_user is true — these are user corrections
-- Avoid creating overlapping timeline entries
-- When entries already exist for a time range, update them (by including their id) rather than creating duplicates
-- If there is no activity data for the requested date, say so — don't fabricate entries
+- NEVER overwrite entries where edited_by_user is true — these are user corrections and immovable anchors. Your entries must work around their exact times.
+- Timeline entries MUST be sequential and non-overlapping: for any two entries, the first entry's end_time must be <= the next entry's start_time. The save_timeline_entries tool will REJECT overlapping entries with an error.
+- Short app switches (under ~5-10 minutes, like quickly checking Spotify or Telegram) should be absorbed into the surrounding dominant activity, not given their own entry. Only create a new entry when the user's primary activity genuinely changes for a meaningful duration.
+- When extending an existing entry's time range, you MUST also adjust adjacent entries to prevent overlap (e.g., if you extend entry A's end_time past entry B's start_time, also update entry B's start_time to match).
+- When entries already exist for a time range, update them (by including their id) rather than creating duplicates.
+- If save_timeline_entries returns overlap errors, read the error messages carefully, fix the overlapping times, and call save_timeline_entries again with corrected entries.
+- If there is no activity data for the requested date, say so — don't fabricate entries.
 
 ## Chat mode
 
