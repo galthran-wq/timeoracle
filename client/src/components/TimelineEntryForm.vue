@@ -222,7 +222,7 @@ function close() {
               <NInput
                 v-model:value="description"
                 type="textarea"
-                :rows="2"
+                :autosize="{ minRows: 2, maxRows: 10 }"
                 placeholder="Notes (optional)"
                 size="small"
                 style="margin-bottom: 12px"

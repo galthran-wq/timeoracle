@@ -340,6 +340,10 @@ export function createSessionLinesPlugin(palette: SessionColor[]) {
       scheduleRender()
     },
 
+    refresh() {
+      scheduleRender()
+    },
+
     destroy() {
       if (observer) {
         observer.disconnect()

@@ -285,7 +285,7 @@ async def _handle_telegram_chat(
             )
 
         import telegramify_markdown
-        converted = telegramify_markdown.markdownify(result.data)
+        converted = telegramify_markdown.markdownify(result.output)
         await tg.send_message(tg_chat_id, converted, parse_mode="MarkdownV2")
     except Exception:
         logger.exception("Telegram chat error for user %s", user_id)

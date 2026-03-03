@@ -85,8 +85,7 @@ body {
 }
 
 .sx__time-grid-event {
-  z-index: auto !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  z-index: 4 !important;
   padding: 0 !important;
   background: transparent !important;
 }
@@ -116,73 +115,64 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border-left: 3px solid var(--to-brand);
-  background: var(--to-brand-soft);
+  border: 1px solid color-mix(in srgb, var(--tge-color) 30%, transparent);
+  border-bottom: 3px solid color-mix(in srgb, var(--tge-color) 40%, transparent);
+  border-left: 3px solid var(--tge-color);
+  background: transparent;
   border-radius: 3px;
-  pointer-events: none;
 }
 
-:root.dark .tge-card {
-  background: #1A2E44;
+.tge-header {
+  padding: 3px 6px;
+  background: color-mix(in srgb, var(--tge-color) 15%, white);
+  border-bottom: 1px solid color-mix(in srgb, var(--tge-color) 30%, transparent);
 }
 
-.tge-text {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 4;
-  padding: 2px 4px;
-  pointer-events: none;
-  background: linear-gradient(to bottom, #EEF4FC 0%, rgba(238, 244, 252, 0.8) 40%, transparent 70%);
-  border-radius: 2px;
-}
-
-:root.dark .tge-text {
-  background: linear-gradient(to bottom, #1A2E44 0%, rgba(26, 46, 68, 0.8) 40%, transparent 70%);
+:root.dark .tge-header {
+  background: color-mix(in srgb, var(--tge-color) 20%, #1a1a2e);
 }
 
 .tge-title {
   font-weight: 600;
-  font-size: var(--to-text-base);
+  font-size: 14px;
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  text-shadow: 0 0 4px rgba(255, 255, 255, 0.9), 0 0 8px rgba(255, 255, 255, 0.7);
-}
-
-:root.dark .tge-title {
-  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 0, 0, 0.7);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .tge-category {
   font-size: var(--to-text-xs);
-  opacity: 0.8;
+  opacity: 0.7;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-shadow: 0 0 4px rgba(255, 255, 255, 0.9);
-}
-
-:root.dark .tge-category {
-  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
 }
 
 .tge-description {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 4px 6px;
   font-size: var(--to-text-xs);
   line-height: 1.3;
-  margin-top: 2px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  background: rgba(255, 255, 255, 0.95);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  text-shadow: 0 0 4px rgba(255, 255, 255, 0.9);
 }
 
 :root.dark .tge-description {
-  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+  background: rgba(20, 35, 55, 0.95);
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.tge-card:hover .tge-description {
+  display: block;
+  z-index: 5;
 }
 
 /* Consistent card styling */

@@ -10,6 +10,7 @@ import { createCurrentTimePlugin } from '@schedule-x/current-time'
 import { formatISO } from 'date-fns'
 import { useTimelineStore } from '@/stores/timeline'
 import { useActivityStore } from '@/stores/activity'
+import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { ApiError } from '@/api/client'
 import { createSessionLinesPlugin } from '@/plugins/sessionLines'
@@ -25,7 +26,11 @@ import '@schedule-x/theme-default/dist/index.css'
 const message = useMessage()
 const timelineStore = useTimelineStore()
 const activityStore = useActivityStore()
+const authStore = useAuthStore()
 const themeStore = useThemeStore()
+
+const dayStartHour = authStore.user?.session_config?.day_start_hour ?? 0
+const dayBoundaryTime = `${String(dayStartHour).padStart(2, '0')}:00`
 
 const showForm = ref(false)
 const editingEntry = ref<TimelineEntry | null>(null)
@@ -84,6 +89,7 @@ const calendar = createCalendar({
   selectedDate: Temporal.PlainDate.from(timelineStore.selectedDate),
   isDark: themeStore.isDark,
   timezone: tz,
+  dayBoundaries: { start: dayBoundaryTime, end: dayBoundaryTime },
   events: [],
   plugins: [dragAndDrop, eventResize, sessionLines, currentTime],
   calendars: {
@@ -165,7 +171,10 @@ function syncEvents() {
 
 watch(() => timelineStore.entries, syncEvents, { deep: true })
 watch(() => activityStore.sessions, syncEvents, { deep: true })
-watch(() => themeStore.isDark, (dark) => calendar.setTheme(dark ? 'dark' : 'light'))
+watch(() => themeStore.isDark, (dark) => {
+  calendar.setTheme(dark ? 'dark' : 'light')
+  sessionLines.refresh()
+})
 
 watch(
   [() => timelineStore.rangeStart, () => timelineStore.viewMode],

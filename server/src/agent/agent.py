@@ -122,6 +122,6 @@ async def generate_timeline(
     )
 
     return {
-        "message": result.data,
+        "message": result.output,
         "chat_id": str(chat.id),
     }
