@@ -390,19 +390,12 @@ mod macos_login {
                 mode,
                 true,
             );
-            if let Some(ref event) = event {
-                app.sendEvent(event);
-            }
 
-            if !window.isVisible() {
-                quit = true;
-                break;
-            }
-
+            let mut mouse_down_on_btn = false;
             if !login_pending && !was_btn_pressed {
                 if let Some(ref event) = event {
                     let event_type = unsafe { event.r#type() };
-                    if event_type == objc2_app_kit::NSEventType::LeftMouseUp {
+                    if event_type == objc2_app_kit::NSEventType::LeftMouseDown {
                         let loc = event.locationInWindow();
                         let content_view = unsafe { window.contentView() }.unwrap();
                         let pt = content_view.convertPoint_fromView(loc, None);
@@ -412,10 +405,23 @@ mod macos_login {
                             && pt.y >= btn_frame.origin.y
                             && pt.y <= btn_frame.origin.y + btn_frame.size.height
                         {
-                            was_btn_pressed = true;
+                            mouse_down_on_btn = true;
                         }
                     }
                 }
+            }
+
+            if let Some(ref event) = event {
+                app.sendEvent(event);
+            }
+
+            if mouse_down_on_btn {
+                was_btn_pressed = true;
+            }
+
+            if !window.isVisible() {
+                quit = true;
+                break;
             }
 
             if was_btn_pressed && !login_pending {
