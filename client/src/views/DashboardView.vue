@@ -21,7 +21,7 @@ import { listEntries } from '@/api/timeline'
 import { listSessions } from '@/api/activity'
 import { getDaySummary, getDaySummaryTrends } from '@/api/daySummary'
 import { useDayAnalytics } from '@/composables/useDayAnalytics'
-import { SESSION_PALETTE, CATEGORY_COLORS } from '@/constants/palette'
+import { SESSION_PALETTE, CATEGORY_COLORS, SEMANTIC_COLORS } from '@/constants/palette'
 import { getLogicalToday } from '@/utils/dayBoundary'
 import type { TimelineEntry } from '@/types/timeline'
 import type { ActivitySession } from '@/types/activity'
@@ -69,9 +69,9 @@ const displayedSessions = computed(() =>
 
 function focusScoreColor(score: number | null): string {
   if (score === null) return 'var(--to-text-secondary)'
-  if (score > 0.6) return '#10B981'
-  if (score >= 0.3) return '#F59E0B'
-  return '#EF4444'
+  if (score > 0.6) return SEMANTIC_COLORS.focusGood
+  if (score >= 0.3) return SEMANTIC_COLORS.focusFair
+  return SEMANTIC_COLORS.focusBad
 }
 
 function formatScore(score: number | null): string {
@@ -140,11 +140,11 @@ onMounted(async () => {
           <div class="stat-label">Active Time</div>
           <div class="stat-value">{{ formatMinutes(totalActiveMinutes) }}</div>
         </div>
-        <div class="stat-card" style="border-left-color: #6366F1">
+        <div class="stat-card" style="border-left-color: #0d7377">
           <div class="stat-label">Sessions</div>
           <div class="stat-value">{{ sessionCount }}</div>
         </div>
-        <div class="stat-card" style="border-left-color: #14B8A6">
+        <div class="stat-card" style="border-left-color: #0d9488">
           <div class="stat-label">Top App</div>
           <div class="stat-value" style="font-size: 20px">{{ topApp ?? '—' }}</div>
         </div>
@@ -157,17 +157,17 @@ onMounted(async () => {
             {{ formatScore(todaySummary?.focus_score ?? null) }}
           </div>
         </div>
-        <div class="stat-card" style="border-left-color: #EF4444">
+        <div class="stat-card" style="border-left-color: #b83230">
           <div class="stat-label">Distraction</div>
           <div class="stat-value">{{ formatScore(todaySummary?.distraction_score ?? null) }}</div>
         </div>
-        <div class="stat-card" style="border-left-color: #8B5CF6">
+        <div class="stat-card" style="border-left-color: #7c3aed">
           <div class="stat-label">Longest Focus</div>
           <div class="stat-value" style="font-size: 20px">
             {{ todaySummary ? formatMinutes(todaySummary.longest_focus_minutes) : '—' }}
           </div>
         </div>
-        <div class="stat-card" style="border-left-color: #F59E0B">
+        <div class="stat-card" style="border-left-color: #d97706">
           <div class="stat-label">Context Switches</div>
           <div class="stat-value">{{ todaySummary?.context_switches ?? '—' }}</div>
         </div>
@@ -187,17 +187,17 @@ onMounted(async () => {
                 <div
                   v-if="s.productive_minutes > 0"
                   class="stacked-seg"
-                  :style="{ width: (s.productive_minutes / maxTrendMinutes * 100) + '%', background: '#10B981' }"
+                  :style="{ width: (s.productive_minutes / maxTrendMinutes * 100) + '%', background: SEMANTIC_COLORS.productive }"
                 />
                 <div
                   v-if="s.neutral_minutes > 0"
                   class="stacked-seg"
-                  :style="{ width: (s.neutral_minutes / maxTrendMinutes * 100) + '%', background: '#6B7280' }"
+                  :style="{ width: (s.neutral_minutes / maxTrendMinutes * 100) + '%', background: SEMANTIC_COLORS.neutral }"
                 />
                 <div
                   v-if="s.distraction_minutes > 0"
                   class="stacked-seg"
-                  :style="{ width: (s.distraction_minutes / maxTrendMinutes * 100) + '%', background: '#EF4444' }"
+                  :style="{ width: (s.distraction_minutes / maxTrendMinutes * 100) + '%', background: SEMANTIC_COLORS.distraction }"
                 />
               </div>
               <NText depth="3" class="bar-value">{{ formatScore(s.focus_score) }}</NText>

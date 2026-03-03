@@ -1,7 +1,7 @@
 import 'temporal-polyfill/global'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import 'vfonts/Lato.css'
+import '@fontsource-variable/inter'
 import 'vfonts/FiraCode.css'
 
 import App from './App.vue'

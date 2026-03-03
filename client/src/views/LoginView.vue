@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { NCard, NForm, NFormItem, NInput, NButton, NAlert, NText } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
+import LogoIcon from '@/components/LogoIcon.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -34,6 +35,7 @@ async function handleSubmit() {
 <template>
   <div class="login-page">
     <div style="text-align: center; margin-bottom: 32px">
+      <LogoIcon :size="80" class="login-logo" />
       <div class="login-brand">digitalgulag</div>
       <NText depth="3" style="font-size: 14px">AI-powered time tracking</NText>
     </div>
@@ -78,10 +80,15 @@ async function handleSubmit() {
   background: linear-gradient(135deg, var(--to-login-bg-1) 0%, var(--to-login-bg-2) 50%, var(--to-login-bg-1) 100%);
 }
 
+.login-logo {
+  margin-bottom: 16px;
+}
+
 .login-brand {
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 700;
-  color: var(--to-brand);
+  letter-spacing: -0.02em;
+  color: var(--to-text-primary);
   margin-bottom: 8px;
 }
 
@@ -89,6 +96,6 @@ async function handleSubmit() {
   max-width: 400px;
   width: 100%;
   border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 24px rgba(28, 25, 23, 0.08);
 }
 </style>

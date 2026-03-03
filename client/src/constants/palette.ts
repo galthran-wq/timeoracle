@@ -1,8 +1,17 @@
-export const DEFAULT_ENTRY_COLOR = '#3B82F6'
+export const DEFAULT_ENTRY_COLOR = '#0d7377'
 
 export const CATEGORY_COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6',
+  '#0d7377', '#2d7a4f', '#b8860b', '#b83230', '#a0522d', '#c2410c', '#0e7490', '#a16207',
 ]
+
+export const SEMANTIC_COLORS = {
+  productive: '#2d7a4f',
+  neutral: '#78716c',
+  distraction: '#b83230',
+  focusGood: '#2d7a4f',
+  focusFair: '#b8860b',
+  focusBad: '#b83230',
+} as const
 
 export interface SessionColor {
   main: string
@@ -75,12 +84,12 @@ export function sessionColorFromHex(hex: string): SessionColor {
 }
 
 export const SESSION_PALETTE: SessionColor[] = [
-  { main: '#6366F1', container: '#E0E7FF', onContainer: '#312E81', darkContainer: 'rgba(99,102,241,0.18)', darkOnContainer: '#C7D2FE' },
-  { main: '#14B8A6', container: '#CCFBF1', onContainer: '#134E4A', darkContainer: 'rgba(20,184,166,0.18)', darkOnContainer: '#99F6E4' },
-  { main: '#F59E0B', container: '#FEF3C7', onContainer: '#78350F', darkContainer: 'rgba(245,158,11,0.18)', darkOnContainer: '#FDE68A' },
-  { main: '#EC4899', container: '#FCE7F3', onContainer: '#831843', darkContainer: 'rgba(236,72,153,0.18)', darkOnContainer: '#FBCFE8' },
-  { main: '#8B5CF6', container: '#EDE9FE', onContainer: '#4C1D95', darkContainer: 'rgba(139,92,246,0.18)', darkOnContainer: '#DDD6FE' },
-  { main: '#10B981', container: '#D1FAE5', onContainer: '#064E3B', darkContainer: 'rgba(16,185,129,0.18)', darkOnContainer: '#A7F3D0' },
-  { main: '#F97316', container: '#FFEDD5', onContainer: '#7C2D12', darkContainer: 'rgba(249,115,22,0.18)', darkOnContainer: '#FED7AA' },
-  { main: '#06B6D4', container: '#CFFAFE', onContainer: '#155E75', darkContainer: 'rgba(6,182,212,0.18)', darkOnContainer: '#A5F3FC' },
+  { main: '#0d7377', container: '#ccfbf1', onContainer: '#134E4A', darkContainer: 'rgba(13,115,119,0.18)', darkOnContainer: '#99f6e4' },
+  { main: '#2d7a4f', container: '#dcfce7', onContainer: '#14532d', darkContainer: 'rgba(45,122,79,0.18)', darkOnContainer: '#bbf7d0' },
+  { main: '#d97706', container: '#fef3c7', onContainer: '#78350F', darkContainer: 'rgba(217,119,6,0.18)', darkOnContainer: '#fde68a' },
+  { main: '#c2410c', container: '#ffedd5', onContainer: '#7c2d12', darkContainer: 'rgba(194,65,12,0.18)', darkOnContainer: '#fed7aa' },
+  { main: '#a0522d', container: '#fbe8dc', onContainer: '#5c2d14', darkContainer: 'rgba(160,82,45,0.18)', darkOnContainer: '#f0c8a8' },
+  { main: '#0e7490', container: '#cffafe', onContainer: '#155e75', darkContainer: 'rgba(14,116,144,0.18)', darkOnContainer: '#a5f3fc' },
+  { main: '#b45309', container: '#fef3c7', onContainer: '#78350f', darkContainer: 'rgba(180,83,9,0.18)', darkOnContainer: '#fde68a' },
+  { main: '#0d9488', container: '#ccfbf1', onContainer: '#134E4A', darkContainer: 'rgba(13,148,136,0.18)', darkOnContainer: '#99f6e4' },
 ]

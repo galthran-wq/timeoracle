@@ -14,6 +14,7 @@ import {
 import type { MenuOption } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
+import LogoIcon from '@/components/LogoIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -37,7 +38,10 @@ function onMenuSelect(key: string) {
 <template>
   <NLayout style="height: 100%">
     <NLayoutHeader class="app-header">
-      <span class="brand">digitalgulag</span>
+      <div class="brand-group">
+        <LogoIcon :size="52" />
+        <span class="brand">digitalgulag</span>
+      </div>
       <NMenu
         mode="horizontal"
         :value="menuKey"
@@ -75,12 +79,19 @@ function onMenuSelect(key: string) {
   box-shadow: 0 1px 0 var(--to-border);
 }
 
-.brand {
-  font-size: 20px;
-  font-weight: 700;
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   white-space: nowrap;
   margin-right: 8px;
-  color: var(--to-brand);
+}
+
+.brand {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--to-text-primary);
 }
 
 .header-divider {

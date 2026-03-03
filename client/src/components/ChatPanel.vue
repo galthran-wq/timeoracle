@@ -251,6 +251,10 @@ function handleKeydown(e: KeyboardEvent) {
   border-bottom-right-radius: var(--to-radius-sm);
 }
 
+:root.dark .chat-bubble.user {
+  color: #1a1a2e;
+}
+
 .chat-bubble.assistant {
   background: var(--to-surface-secondary);
   border: 1px solid var(--to-border);

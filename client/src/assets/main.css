@@ -1,18 +1,21 @@
 :root {
-  --to-brand: #3B82F6;
-  --to-brand-hover: #2563EB;
-  --to-brand-soft: #DBEAFE;
-  --to-brand-soft-text: #1E3A5F;
+  --to-brand: #1a1a2e;
+  --to-brand-hover: #2d2d4a;
+  --to-brand-soft: #e8e6f0;
+  --to-brand-soft-text: #1a1a2e;
 
-  --to-surface: #ffffff;
-  --to-surface-secondary: #f8fafc;
-  --to-text-primary: #0f172a;
-  --to-text-secondary: #64748b;
-  --to-border: #e2e8f0;
-  --to-bar-track: #f1f5f9;
+  --to-accent: #b83230;
+  --to-accent-hover: #9a2a28;
 
-  --to-login-bg-1: #f0f4ff;
-  --to-login-bg-2: #e8e0f0;
+  --to-surface: #fefefe;
+  --to-surface-secondary: #f5f5f5;
+  --to-text-primary: #1c1917;
+  --to-text-secondary: #78716c;
+  --to-border: #e7e5e0;
+  --to-bar-track: #f0eeeb;
+
+  --to-login-bg-1: #f5f3f0;
+  --to-login-bg-2: #e8e2da;
 
   --to-space-xs: 4px;
   --to-space-sm: 8px;
@@ -33,20 +36,23 @@
 }
 
 :root.dark {
-  --to-brand: #60A5FA;
-  --to-brand-hover: #93C5FD;
-  --to-brand-soft: #1E3A5F;
-  --to-brand-soft-text: #DBEAFE;
+  --to-brand: #e8e6f0;
+  --to-brand-hover: #ffffff;
+  --to-brand-soft: #2a2a42;
+  --to-brand-soft-text: #d5d3e0;
+
+  --to-accent: #d94a48;
+  --to-accent-hover: #e85d5b;
 
   --to-surface: #1a1a2e;
-  --to-surface-secondary: #16162a;
-  --to-text-primary: #e2e8f0;
-  --to-text-secondary: #94a3b8;
+  --to-surface-secondary: #18181c;
+  --to-text-primary: #e8e6e0;
+  --to-text-secondary: #9b9590;
   --to-border: #2d2d44;
   --to-bar-track: #1e1e32;
 
-  --to-login-bg-1: #0f172a;
-  --to-login-bg-2: #1e1b4b;
+  --to-login-bg-1: #12121f;
+  --to-login-bg-2: #1e1a30;
 }
 
 *,
@@ -67,7 +73,8 @@ body,
 
 body {
   font-family:
-    v-sans,
+    'Inter Variable',
+    'Inter',
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
@@ -91,11 +98,11 @@ body {
 }
 
 .sx__current-time-indicator {
-  background-color: #EF4444;
+  background-color: var(--to-accent);
 }
 
 .sx__current-time-line {
-  border-color: #EF4444;
+  border-color: var(--to-accent);
 }
 
 /* Page transitions */
@@ -129,7 +136,7 @@ body {
 }
 
 :root.dark .tge-header {
-  background: color-mix(in srgb, var(--tge-color) 20%, #1a1a2e);
+  background: color-mix(in srgb, var(--tge-color) 20%, var(--to-surface));
 }
 
 .tge-title {
@@ -166,7 +173,7 @@ body {
 }
 
 :root.dark .tge-description {
-  background: rgba(20, 35, 55, 0.95);
+  background: rgba(26, 26, 46, 0.95);
   border-top-color: rgba(255, 255, 255, 0.08);
 }
 
@@ -310,12 +317,12 @@ body {
 }
 
 .status-dot.active {
-  background: #10B981;
+  background: #2d7a4f;
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
 .status-dot.inactive {
-  background: #EF4444;
+  background: var(--to-accent);
 }
 
 @keyframes pulse-dot {

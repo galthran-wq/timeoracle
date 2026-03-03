@@ -83,7 +83,7 @@ const categoryTypeOptions = [
 ]
 
 const newCatName = ref('')
-const newCatColor = ref('#6B7280')
+const newCatColor = ref('#78716c')
 const newCatType = ref<CategoryConfig['type']>('neutral')
 const newRule = ref('')
 
@@ -114,7 +114,7 @@ function addCategory() {
   }
   editingCategories.value[name] = { color: newCatColor.value, type: newCatType.value }
   newCatName.value = ''
-  newCatColor.value = '#6B7280'
+  newCatColor.value = '#78716c'
   newCatType.value = 'neutral'
 }
 

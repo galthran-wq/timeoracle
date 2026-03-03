@@ -204,13 +204,13 @@ onUnmounted(() => stopTimers())
 }
 
 .status-badge.connected {
-  background: #D1FAE5;
-  color: #065F46;
+  background: #dcfce7;
+  color: #14532d;
 }
 
 :root.dark .status-badge.connected {
-  background: #064E3B;
-  color: #6EE7B7;
+  background: rgba(45, 122, 79, 0.15);
+  color: #86efac;
 }
 
 .integration-actions {
