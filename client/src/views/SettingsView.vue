@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import {
   NCard,
   NSpace,
@@ -12,7 +12,6 @@ import {
   NIcon,
   NInput,
   NColorPicker,
-  NText,
   useMessage,
 } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
@@ -91,6 +90,14 @@ const newRule = ref('')
 const defaultCategories = ref<Record<string, CategoryConfig>>({})
 const editingCategories = ref<Record<string, CategoryConfig>>({})
 const editingRules = ref<string[]>([])
+const showDeprecated = ref(false)
+
+const activeCategories = computed(() =>
+  Object.entries(editingCategories.value).filter(([, cfg]) => !cfg.deprecated),
+)
+const deprecatedCategories = computed(() =>
+  Object.entries(editingCategories.value).filter(([, cfg]) => cfg.deprecated),
+)
 
 function initCategoryEditor() {
   const cats = config.value.categories ?? defaultCategories.value
@@ -319,36 +326,29 @@ onMounted(loadConfig)
           <NCard title="Categories">
             <NSpace vertical :size="16">
               <div
-                v-for="(cfg, name) in editingCategories"
+                v-for="[name, cfg] in activeCategories"
                 :key="name"
                 class="category-row"
-                :class="{ deprecated: cfg.deprecated }"
               >
                 <span class="color-swatch" :style="{ backgroundColor: cfg.color }" />
                 <span class="category-name">{{ name }}</span>
-                <template v-if="!cfg.deprecated">
-                  <NSelect
-                    :value="cfg.type"
-                    :options="categoryTypeOptions"
-                    size="small"
-                    style="width: 130px"
-                    @update:value="(v: CategoryConfig['type']) => (cfg.type = v)"
-                  />
-                  <NColorPicker
-                    :value="cfg.color"
-                    :modes="['hex']"
-                    size="small"
-                    style="width: 80px"
-                    @update:value="(v: string) => (cfg.color = v)"
-                  />
-                  <NButton text size="small" @click="deprecateCategory(name as string)">
-                    <template #icon><NIcon :size="16"><TrashOutline /></NIcon></template>
-                  </NButton>
-                </template>
-                <template v-else>
-                  <NText depth="3" style="flex: 1; font-style: italic">hidden</NText>
-                  <NButton text size="small" @click="restoreCategory(name as string)">Restore</NButton>
-                </template>
+                <NSelect
+                  :value="cfg.type"
+                  :options="categoryTypeOptions"
+                  size="small"
+                  style="width: 130px"
+                  @update:value="(v: CategoryConfig['type']) => (cfg.type = v)"
+                />
+                <NColorPicker
+                  :value="cfg.color"
+                  :modes="['hex']"
+                  size="small"
+                  style="width: 80px"
+                  @update:value="(v: string) => (cfg.color = v)"
+                />
+                <NButton text size="small" @click="deprecateCategory(name)">
+                  <template #icon><NIcon :size="16"><TrashOutline /></NIcon></template>
+                </NButton>
               </div>
 
               <div class="category-row add-row">
@@ -373,6 +373,27 @@ onMounted(loadConfig)
                 />
                 <NButton size="small" @click="addCategory">Add</NButton>
               </div>
+
+              <template v-if="deprecatedCategories.length">
+                <NButton
+                  text
+                  size="small"
+                  @click="showDeprecated = !showDeprecated"
+                >
+                  {{ showDeprecated ? 'Hide' : 'Show' }} {{ deprecatedCategories.length }} hidden {{ deprecatedCategories.length === 1 ? 'category' : 'categories' }}
+                </NButton>
+                <template v-if="showDeprecated">
+                  <div
+                    v-for="[name, cfg] in deprecatedCategories"
+                    :key="name"
+                    class="category-row deprecated"
+                  >
+                    <span class="color-swatch" :style="{ backgroundColor: cfg.color }" />
+                    <span class="category-name">{{ name }}</span>
+                    <NButton text size="small" @click="restoreCategory(name)">Restore</NButton>
+                  </div>
+                </template>
+              </template>
             </NSpace>
           </NCard>
 
