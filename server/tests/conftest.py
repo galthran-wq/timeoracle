@@ -1,6 +1,7 @@
 import uuid
 
 import httpx
+import pytest
 import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -11,6 +12,13 @@ from src.core.config import settings
 from src.core.database import Base, get_postgres_session
 from src.main import app
 from src.models.postgres.users import UserModel
+
+if not settings.postgres_db.endswith("_test"):
+    pytest.exit(
+        f"Refusing to run tests against non-test database: {settings.postgres_db!r}. "
+        f"Set POSTGRES_DB to a name ending with '_test'.",
+        returncode=1,
+    )
 
 
 @pytest_asyncio.fixture
