@@ -171,7 +171,10 @@ function syncEvents() {
 
 watch(() => timelineStore.entries, syncEvents, { deep: true })
 watch(() => activityStore.sessions, syncEvents, { deep: true })
-watch(() => themeStore.isDark, (dark) => calendar.setTheme(dark ? 'dark' : 'light'))
+watch(() => themeStore.isDark, (dark) => {
+  calendar.setTheme(dark ? 'dark' : 'light')
+  sessionLines.refresh()
+})
 
 watch(
   [() => timelineStore.rangeStart, () => timelineStore.viewMode],
