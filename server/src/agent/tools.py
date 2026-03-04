@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import RunContext
 
 from src.agent.deps import AgentDeps
+from src.agent.prompts import DEFAULT_CATEGORIES
 from src.schemas.timeline_entries import TimelineEntryBulkItem
 from src.services.activity_session_generator import compute_sessions
 from src.services.day_boundary import day_range_utc, logical_date_for_timestamp
@@ -15,15 +16,11 @@ logger = logging.getLogger(__name__)
 
 class TimelineEntry(BaseModel):
     id: str | None = Field(default=None, description="Existing entry UUID to update, or null to create new")
-    date: str = Field(description="Date in YYYY-MM-DD format")
     start_time: str = Field(description="Start time as ISO 8601 datetime with timezone")
     end_time: str = Field(description="End time as ISO 8601 datetime with timezone")
     label: str = Field(description="Concise human-readable label (2-5 words)")
-    description: str | None = Field(default=None, description="Optional longer description")
+    description: str = Field(description="1-2 sentence notes on what was happening: apps, sites, tasks, topics")
     category: str | None = Field(default=None, description="One of the user's configured categories")
-    color: str | None = Field(default=None, description="Hex color like #3B82F6")
-    confidence: float | None = Field(default=None, description="Confidence score 0.0-1.0")
-    source_summary: str | None = Field(default=None, description="Brief note on which apps/titles informed this label")
 
 
 async def _emit(ctx: RunContext[AgentDeps], event_type: str, data: dict):
@@ -216,6 +213,10 @@ async def save_timeline_entries(ctx: RunContext[AgentDeps], entries: list[Timeli
 
             entry_id = UUID(entry.id) if entry.id else None
 
+            cats = cfg.get("categories") or DEFAULT_CATEGORIES
+            cat_cfg = cats.get(entry.category, {})
+            color = cat_cfg.get("color") if isinstance(cat_cfg, dict) else cat_cfg
+
             bulk_items.append(TimelineEntryBulkItem(
                 id=entry_id,
                 date=entry_date,
@@ -224,9 +225,8 @@ async def save_timeline_entries(ctx: RunContext[AgentDeps], entries: list[Timeli
                 label=entry.label,
                 description=entry.description,
                 category=entry.category,
-                color=entry.color,
-                confidence=entry.confidence,
-                source_summary=entry.source_summary,
+                color=color,
+                source_summary=entry.description,
             ))
         except (ValueError, TypeError) as e:
             logger.warning("Skipping invalid entry: %s", e)
