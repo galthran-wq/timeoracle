@@ -32,15 +32,25 @@ async def generate_day_summary(
 
     repo = DaySummaryRepository(session)
     timeline_repo = TimelineEntryRepository(session)
-    entries = await timeline_repo.get_by_time_range(
-        user_id, range_start_aware, range_end_aware, limit=1000, offset=0,
+
+    existing = await repo.get_by_user_and_date(user_id, target_date)
+
+    max_entry_updated = await timeline_repo.get_max_updated_at_in_range(
+        user_id, range_start_aware, range_end_aware,
     )
 
-    if not entries:
-        existing = await repo.get_by_user_and_date(user_id, target_date)
+    if max_entry_updated is None:
         if existing:
             await repo.delete(existing)
         return None
+
+    if existing and existing.updated_at and max_entry_updated <= existing.updated_at:
+        if is_partial or not existing.is_partial:
+            return existing
+
+    entries = await timeline_repo.get_by_time_range(
+        user_id, range_start_aware, range_end_aware, limit=1000, offset=0,
+    )
 
     activity_repo = ActivityEventRepository(session)
     events = await activity_repo.get_by_time_range(
@@ -59,8 +69,6 @@ async def generate_day_summary(
 
     user_categories = cfg.get("categories")
     metrics = compute_day_summary(entries, sessions, user_categories)
-
-    existing = await repo.get_by_user_and_date(user_id, target_date)
 
     narrative = None
     if not is_partial:

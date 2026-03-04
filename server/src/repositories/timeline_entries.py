@@ -59,6 +59,12 @@ class TimelineEntryRepositoryInterface(ABC):
         pass
 
     @abstractmethod
+    async def get_max_updated_at_in_range(
+        self, user_id: UUID, start_dt: datetime, end_dt: datetime,
+    ) -> datetime | None:
+        pass
+
+    @abstractmethod
     async def bulk_upsert(
         self, user_id: UUID, items: list[TimelineEntryBulkItem],
         chat_id: UUID | None = None,
@@ -205,6 +211,18 @@ class TimelineEntryRepository(TimelineEntryRepositoryInterface):
         except Exception:
             await self.session.rollback()
             raise
+
+    async def get_max_updated_at_in_range(
+        self, user_id: UUID, start_dt: datetime, end_dt: datetime,
+    ) -> datetime | None:
+        result = await self.session.execute(
+            select(func.max(TimelineEntryModel.updated_at)).where(
+                TimelineEntryModel.user_id == user_id,
+                TimelineEntryModel.start_time >= start_dt,
+                TimelineEntryModel.start_time < end_dt,
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def bulk_upsert(
         self, user_id: UUID, items: list[TimelineEntryBulkItem],
