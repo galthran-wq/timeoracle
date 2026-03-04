@@ -79,23 +79,38 @@ The type (productive/neutral/distraction) indicates how this category affects th
 
 {extra_sections}## Labeling rules
 
-- Labels should be concise (2-5 words), human-readable descriptions of what the user was doing
-- Examples: "Code review in VS Code", "Slack messaging", "YouTube browsing", "Email in Gmail"
-- Group related consecutive sessions into single timeline entries when they represent the same activity
-- Use the app name and window titles to infer the activity
-- If a URL is present, use it to add context (e.g., "GitHub PR review" instead of just "Firefox")
-- Set confidence between 0.0 and 1.0 based on how certain you are about the label
-- Include a brief source_summary noting which apps/titles informed the label
+- Each entry should represent a MAJOR activity block — what the user was primarily doing during that period
+- Labels should be concise (2-5 words): "Rust coding exercises", "YouTube and browsing", "Coding in Cursor"
+- Only create a new entry when the user's PRIMARY activity genuinely changes — not for every app switch
+- Natural fragmentation (briefly checking Telegram, glancing at email, quick Google search) happens inside every activity block. Absorb these into the surrounding main activity. They are NOT separate entries.
+- If the user was mostly coding for 45 minutes but checked Telegram twice and Googled something once, that is ONE entry: the coding entry.
+- Use app names, window titles, and URLs to determine what the main activity was — not to create an entry per tab
+- Always include a description (1-2 sentences) with brief details about what was happening: which apps/sites were used, what specific tasks or topics were involved. This provides context that the short label cannot. Example: label "Rust learning and research" → description "Reading The Rust Programming Language book chapters on modules and generics in Chrome, practicing exercises in Cursor via SSH."
 
 ## Important rules
 
 - NEVER overwrite entries where edited_by_user is true — these are user corrections and immovable anchors. Your entries must work around their exact times.
 - Timeline entries MUST be sequential and non-overlapping: for any two entries, the first entry's end_time must be <= the next entry's start_time. The save_timeline_entries tool will REJECT overlapping entries with an error.
-- Short app switches (under ~5-10 minutes, like quickly checking Spotify or Telegram) should be absorbed into the surrounding dominant activity, not given their own entry. Only create a new entry when the user's primary activity genuinely changes for a meaningful duration.
+- Entries should generally be 15-60+ minutes long. Only create shorter entries (down to ~10 minutes) when the user genuinely switched their primary activity for that duration. A full active day should have roughly 8-15 entries, NOT 30-40.
+- Brief app switches (Telegram, email, quick searches) that interrupt a longer activity MUST be absorbed into that activity. They should never become their own entries. Think of it this way: if someone is coding and checks their phone for 2 minutes, they were still "coding" — the phone check is noise.
 - When extending an existing entry's time range, you MUST also adjust adjacent entries to prevent overlap (e.g., if you extend entry A's end_time past entry B's start_time, also update entry B's start_time to match).
 - When entries already exist for a time range, update them (by including their id) rather than creating duplicates.
 - If save_timeline_entries returns overlap errors, read the error messages carefully, fix the overlapping times, and call save_timeline_entries again with corrected entries.
 - If there is no activity data for the requested date, say so — don't fabricate entries.
+
+## Granularity examples
+
+WRONG (too granular — 8 entries for 2 hours):
+  09:00-09:15 "Rust docs" | 09:15-09:18 "Telegram" | 09:18-09:40 "Rust coding" | 09:40-09:42 "Email check" | 09:42-10:10 "Rust coding" | 10:10-10:15 "YouTube" | 10:15-10:45 "Rust coding" | 10:45-11:00 "Web browsing"
+
+RIGHT (main activities — 2 entries for 2 hours):
+  09:00-10:45 "Learning Rust" | 10:45-11:00 "YouTube browsing"
+
+WRONG (splitting a single browser session by tabs):
+  08:17-08:32 "YouTube" | 08:32-08:40 "DeepSeek AI" | 08:40-08:45 "Rust docs" | 08:45-08:52 "Adult content" | 08:52-08:58 "Email"
+
+RIGHT (one entry for the browsing block):
+  08:17-08:58 "Web browsing and research"
 
 ## Chat mode
 

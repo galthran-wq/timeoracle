@@ -41,7 +41,6 @@ class TestBuildSystemPrompt:
         assert "non-overlapping" in prompt
         assert "REJECT" in prompt
         assert "absorbed" in prompt
-        assert "confidence" in prompt
 
     def test_custom_categories(self):
         custom = {

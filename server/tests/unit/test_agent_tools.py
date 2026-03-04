@@ -173,22 +173,18 @@ class TestSaveTimelineEntries:
         ctx = _make_ctx(bulk_upsert_result=(2, 0, 0, []))
         entries = [
             TimelineEntry(
-                date="2026-03-01",
                 start_time="2026-03-01T14:00:00+00:00",
                 end_time="2026-03-01T15:00:00+00:00",
                 label="Coding",
                 category="Work",
-                color="#3B82F6",
-                confidence=0.9,
+                description="Test description",
             ),
             TimelineEntry(
-                date="2026-03-01",
                 start_time="2026-03-01T15:00:00+00:00",
                 end_time="2026-03-01T16:00:00+00:00",
                 label="Email",
                 category="Communication",
-                color="#8B5CF6",
-                confidence=0.85,
+                description="Test description",
             ),
         ]
         result = await save_timeline_entries(ctx, entries)
@@ -203,16 +199,16 @@ class TestSaveTimelineEntries:
         ctx = _make_ctx(bulk_upsert_result=(1, 0, 0, []))
         entries = [
             TimelineEntry(
-                date="not-a-date",
                 start_time="garbage",
                 end_time="garbage",
                 label="Bad",
+                description="Test",
             ),
             TimelineEntry(
-                date="2026-03-01",
                 start_time="2026-03-01T14:00:00+00:00",
                 end_time="2026-03-01T15:00:00+00:00",
                 label="Good",
+                description="Test",
             ),
         ]
         result = await save_timeline_entries(ctx, entries)
@@ -223,10 +219,10 @@ class TestSaveTimelineEntries:
         ctx = _make_ctx()
         entries = [
             TimelineEntry(
-                date="bad",
                 start_time="bad",
                 end_time="bad",
                 label="Invalid",
+                description="Test",
             ),
         ]
         result = await save_timeline_entries(ctx, entries)
@@ -240,10 +236,10 @@ class TestSaveTimelineEntries:
         entries = [
             TimelineEntry(
                 id=str(entry_id),
-                date="2026-03-01",
                 start_time="2026-03-01T14:00:00+00:00",
                 end_time="2026-03-01T15:00:00+00:00",
                 label="Updated",
+                description="Test",
             ),
         ]
         result = await save_timeline_entries(ctx, entries)
@@ -363,16 +359,16 @@ class TestSaveTimelineEntriesOverlapValidation:
         ctx = _make_ctx()
         entries = [
             TimelineEntry(
-                date="2026-03-01",
                 start_time="2026-03-01T09:00:00+00:00",
                 end_time="2026-03-01T10:30:00+00:00",
                 label="Coding",
+                description="Test",
             ),
             TimelineEntry(
-                date="2026-03-01",
                 start_time="2026-03-01T10:00:00+00:00",
                 end_time="2026-03-01T11:00:00+00:00",
                 label="Email",
+                description="Test",
             ),
         ]
         result = await save_timeline_entries(ctx, entries)
@@ -386,16 +382,16 @@ class TestSaveTimelineEntriesOverlapValidation:
         ctx = _make_ctx(bulk_upsert_result=(2, 0, 0, []))
         entries = [
             TimelineEntry(
-                date="2026-03-01",
                 start_time="2026-03-01T09:00:00+00:00",
                 end_time="2026-03-01T10:00:00+00:00",
                 label="Coding",
+                description="Test",
             ),
             TimelineEntry(
-                date="2026-03-01",
                 start_time="2026-03-01T10:00:00+00:00",
                 end_time="2026-03-01T11:00:00+00:00",
                 label="Email",
+                description="Test",
             ),
         ]
         result = await save_timeline_entries(ctx, entries)
@@ -415,10 +411,10 @@ class TestSaveTimelineEntriesOverlapValidation:
 
         entries = [
             TimelineEntry(
-                date="2026-03-01",
                 start_time="2026-03-01T10:30:00+00:00",
                 end_time="2026-03-01T11:30:00+00:00",
                 label="Coding",
+                description="Test",
             ),
         ]
         result = await save_timeline_entries(ctx, entries)
