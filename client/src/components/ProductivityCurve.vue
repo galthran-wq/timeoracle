@@ -11,15 +11,21 @@ import {
   Tooltip,
 } from 'chart.js'
 import 'chartjs-adapter-date-fns'
-import type { ProductivityPoint } from '@/types/productivityCurve'
+import type { ProductivityPoint, AggregatedBucket } from '@/types/productivityCurve'
 import type { TimelineEntry } from '@/types/timeline'
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, TimeScale, Filler, Tooltip)
 
-const props = defineProps<{
-  points: ProductivityPoint[]
+const props = withDefaults(defineProps<{
+  points?: ProductivityPoint[]
+  buckets?: AggregatedBucket[]
+  bucketMinutes?: number
   entries: TimelineEntry[]
-}>()
+}>(), {
+  points: undefined,
+  buckets: undefined,
+  bucketMinutes: 10,
+})
 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
@@ -41,8 +47,9 @@ function findEntry(timestamp: number): TimelineEntry | null {
   return null
 }
 
-function buildData() {
+function buildPointData() {
   const data: { x: number; y: number | null; color: string; entryLabel: string | null; entryDescription: string | null; category: string | null; depth: string | null; isWork: boolean }[] = []
+  if (!props.points) return data
 
   const TEN_MIN = 10 * 60 * 1000
   const GAP_THRESHOLD = 15 * 60 * 1000
@@ -76,14 +83,8 @@ function buildData() {
   return data
 }
 
-function buildChart() {
-  if (!canvasEl.value || !props.points.length) return
-  if (chart) {
-    chart.destroy()
-    chart = null
-  }
-
-  const data = buildData()
+function buildLineChart(data: ReturnType<typeof buildPointData>) {
+  if (!canvasEl.value) return
 
   chart = new Chart(canvasEl.value, {
     type: 'line',
@@ -99,45 +100,26 @@ function buildChart() {
           pointHoverRadius: 5,
           spanGaps: false,
           segment: {
-            borderColor: (ctx: any) => {
-              const i = ctx.p0DataIndex
-              return data[i]?.color || '#6B7280'
-            },
+            borderColor: (ctx: any) => data[ctx.p0DataIndex]?.color || '#6B7280',
             backgroundColor: (ctx: any) => {
-              const i = ctx.p0DataIndex
-              const d = data[i]
+              const d = data[ctx.p0DataIndex]
               if (!d?.color) return 'rgba(107,114,128,0.15)'
-              const alpha = d.isWork ? 0.25 : 0.10
-              return hexToRgba(d.color, alpha)
+              return hexToRgba(d.color, d.isWork ? 0.25 : 0.10)
             },
           },
-          pointBackgroundColor: (ctx: any) => {
-            const i = ctx.dataIndex
-            return data[i]?.color || '#6B7280'
-          },
-          pointBorderColor: (ctx: any) => {
-            const i = ctx.dataIndex
-            return data[i]?.color || '#6B7280'
-          },
+          pointBackgroundColor: (ctx: any) => data[ctx.dataIndex]?.color || '#6B7280',
+          pointBorderColor: (ctx: any) => data[ctx.dataIndex]?.color || '#6B7280',
         },
       ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: {
-        mode: 'nearest',
-        axis: 'x',
-        intersect: false,
-      },
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
       scales: {
         x: {
           type: 'time',
-          time: {
-            unit: 'hour',
-            displayFormats: { hour: 'HH:mm' },
-            tooltipFormat: 'HH:mm',
-          },
+          time: { unit: 'hour', displayFormats: { hour: 'HH:mm' }, tooltipFormat: 'HH:mm' },
           grid: { color: 'rgba(150,150,150,0.08)' },
           ticks: { color: 'rgba(150,150,150,0.6)', font: { size: 11 } },
         },
@@ -145,11 +127,7 @@ function buildChart() {
           min: 0,
           max: 100,
           grid: { color: 'rgba(150,150,150,0.08)' },
-          ticks: {
-            color: 'rgba(150,150,150,0.6)',
-            font: { size: 11 },
-            stepSize: 25,
-          },
+          ticks: { color: 'rgba(150,150,150,0.6)', font: { size: 11 }, stepSize: 25 },
         },
       },
       plugins: {
@@ -157,20 +135,18 @@ function buildChart() {
           callbacks: {
             title: (items: any[]) => {
               if (!items.length) return ''
-              const i = items[0].dataIndex
-              const d = data[i]
+              const d = data[items[0].dataIndex]
               if (!d) return ''
               const time = new Date(d.x).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              return d.entryLabel ? `${time} — ${d.entryLabel}` : time
+              return d.entryLabel ? `${time} \u2014 ${d.entryLabel}` : time
             },
             label: (item: any) => {
-              const i = item.dataIndex
-              const d = data[i]
+              const d = data[item.dataIndex]
               if (!d || d.y == null) return ''
               const parts = [`Score: ${Math.round(d.y)}`]
               if (d.category) parts.push(d.category)
               if (d.depth) parts.push(d.depth)
-              return parts.join('  ·  ')
+              return parts.join('  \u00b7  ')
             },
             afterBody: (items: any[]) => {
               if (!items.length) return ''
@@ -194,7 +170,6 @@ function buildChart() {
           backgroundColor: 'rgba(20,20,20,0.9)',
           titleFont: { weight: 'bold' as const, size: 13 },
           bodyFont: { size: 12 },
-          footerFont: { size: 11, weight: 'normal' as const },
           padding: 10,
           cornerRadius: 6,
           maxWidth: 350,
@@ -204,8 +179,112 @@ function buildChart() {
   })
 }
 
+function buildBucketLineChart() {
+  if (!canvasEl.value || !props.buckets?.length) return
+
+  const data = props.buckets.map((b) => ({
+    x: new Date(b.bucket_start).getTime(),
+    y: b.avg_productivity_score,
+    color: b.dominant_color || '#6B7280',
+    category: b.dominant_category,
+    performance: b.avg_performance_score,
+    pointCount: b.point_count,
+    workCount: b.work_point_count,
+  }))
+
+  const timeUnit = props.bucketMinutes >= 1440 ? 'day' as const : props.bucketMinutes >= 360 ? 'day' as const : 'hour' as const
+  const displayFormat = props.bucketMinutes >= 1440 ? 'MMM d' : 'MMM d HH:mm'
+
+  chart = new Chart(canvasEl.value, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          data: data.map((d) => ({ x: d.x, y: d.y })),
+          fill: 'origin',
+          tension: 0.3,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHitRadius: 12,
+          pointHoverRadius: 6,
+          spanGaps: false,
+          segment: {
+            borderColor: (ctx: any) => data[ctx.p0DataIndex]?.color || '#6B7280',
+            backgroundColor: (ctx: any) => {
+              const d = data[ctx.p0DataIndex]
+              return d?.color ? hexToRgba(d.color, 0.15) : 'rgba(107,114,128,0.15)'
+            },
+          },
+          pointBackgroundColor: (ctx: any) => data[ctx.dataIndex]?.color || '#6B7280',
+          pointBorderColor: (ctx: any) => data[ctx.dataIndex]?.color || '#6B7280',
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: timeUnit, displayFormats: { hour: 'HH:mm', day: displayFormat }, tooltipFormat: displayFormat },
+          grid: { color: 'rgba(150,150,150,0.08)' },
+          ticks: { color: 'rgba(150,150,150,0.6)', font: { size: 11 } },
+        },
+        y: {
+          min: 0,
+          max: 100,
+          grid: { color: 'rgba(150,150,150,0.08)' },
+          ticks: { color: 'rgba(150,150,150,0.6)', font: { size: 11 }, stepSize: 25 },
+        },
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: (item: any) => {
+              const d = data[item.dataIndex]
+              if (!d || d.y == null) return ''
+              const parts = [`Score: ${Math.round(d.y)}`]
+              if (d.category) parts.push(d.category)
+              return parts.join('  \u00b7  ')
+            },
+            afterBody: (items: any[]) => {
+              if (!items.length) return ''
+              const d = data[items[0].dataIndex]
+              if (!d) return ''
+              const lines: string[] = []
+              if (d.performance !== null) lines.push(`Performance: ${Math.round(d.performance)}`)
+              lines.push(`${d.pointCount} points (${d.workCount} work)`)
+              return lines
+            },
+          },
+          backgroundColor: 'rgba(20,20,20,0.9)',
+          titleFont: { weight: 'bold' as const, size: 13 },
+          bodyFont: { size: 12 },
+          padding: 10,
+          cornerRadius: 6,
+          maxWidth: 350,
+        },
+      },
+    },
+  })
+}
+
+function buildChart() {
+  if (chart) {
+    chart.destroy()
+    chart = null
+  }
+
+  if (props.points?.length) {
+    buildLineChart(buildPointData())
+  } else if (props.buckets?.length) {
+    buildBucketLineChart()
+  }
+}
+
 watch(
-  () => [props.points, props.entries],
+  () => [props.points, props.buckets, props.entries, props.bucketMinutes],
   () => nextTick(buildChart),
   { deep: true },
 )

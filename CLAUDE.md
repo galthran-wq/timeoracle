@@ -64,6 +64,14 @@ make dev-test-db                 # create test DB (once)
 make dev-test-migrate            # apply migrations to test DB
 make dev-test                    # run all tests
 make dev-test tests/test_foo.py  # run specific test file
+# NOTE: `make dev-test` uses `docker compose exec` which may hang in
+# non-interactive contexts. Use `docker exec` directly instead:
+#   docker exec digitalgulag-dev-server-1 bash -lc \
+#     "POSTGRES_DB=digitalgulag_test uv run python -m pytest tests/ -v"
+# The `-lc` (login shell) flag is required so uv picks up the venv.
+# Migrations on test DB:
+#   docker exec digitalgulag-dev-server-1 bash -lc \
+#     "POSTGRES_DB=digitalgulag_test uv run alembic upgrade head"
 
 # Testing (server) — local
 cd server

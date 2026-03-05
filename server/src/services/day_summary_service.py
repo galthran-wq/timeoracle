@@ -74,7 +74,25 @@ async def generate_day_summary(
     metrics = compute_day_summary(entries, sessions, productivity_points)
 
     narrative = None
-    if not is_partial:
+    if is_partial:
+        from datetime import datetime as dt
+        from src.services.narrative_generator import generate_rolling_narrative
+        entry_dicts = [
+            {
+                "label": e.label,
+                "category": e.category,
+                "start_time": e.start_time.strftime("%H:%M") if e.start_time else "",
+                "end_time": e.end_time.strftime("%H:%M") if e.end_time else "",
+            }
+            for e in sorted(entries, key=lambda x: x.start_time, reverse=True)[:10]
+        ]
+        narrative = await generate_rolling_narrative(
+            current_time=dt.now().strftime("%H:%M"),
+            metrics=metrics,
+            timeline_entries=entry_dicts,
+            model=cfg.get("llm_model"),
+        )
+    else:
         if existing and existing.narrative and not existing.is_partial:
             narrative = existing.narrative
         else:
@@ -89,8 +107,6 @@ async def generate_day_summary(
                 timeline_entries=entry_dicts,
                 model=cfg.get("llm_model"),
             )
-    elif existing and existing.narrative:
-        narrative = existing.narrative
 
     return await repo.upsert(
         user_id=user_id,

@@ -36,6 +36,7 @@ def compute_day_summary(
     sessions_90 = _compute_focus_sessions(points, 90)
 
     productivity_score = _compute_productivity_score_avg(points)
+    overall_productivity_score = _compute_overall_productivity_score_avg(points)
     work_minutes = _compute_work_minutes(points)
 
     return {
@@ -56,6 +57,7 @@ def compute_day_summary(
         "focus_sessions_25min": sessions_25,
         "focus_sessions_90min": sessions_90,
         "productivity_score": round(productivity_score, 1) if productivity_score is not None else None,
+        "overall_productivity_score": round(overall_productivity_score, 1) if overall_productivity_score is not None else None,
         "work_minutes": round(work_minutes, 2),
     }
 
@@ -255,6 +257,17 @@ def _compute_productivity_score_avg(points: list) -> float | None:
     if not work_scores:
         return None
     return sum(work_scores) / len(work_scores)
+
+
+def _compute_overall_productivity_score_avg(points: list) -> float | None:
+    scores = []
+    for point in points:
+        score = getattr(point, "productivity_score", None)
+        if score is not None:
+            scores.append(score)
+    if not scores:
+        return None
+    return sum(scores) / len(scores)
 
 
 def _compute_work_minutes(points: list) -> float:

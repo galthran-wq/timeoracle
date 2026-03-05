@@ -42,6 +42,7 @@ class DaySummaryModel(Base):
     focus_sessions_25min = Column(Integer, server_default="0", nullable=False)
     focus_sessions_90min = Column(Integer, server_default="0", nullable=False)
     productivity_score = Column(Float, nullable=True)
+    overall_productivity_score = Column(Float, nullable=True)
     work_minutes = Column(Float, server_default="0", nullable=False)
     narrative = Column(Text, nullable=True)
     is_partial = Column(Boolean, server_default="false", nullable=False)

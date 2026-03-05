@@ -29,6 +29,7 @@ export interface DaySummary {
   focus_sessions_25min: number
   focus_sessions_90min: number
   productivity_score: number | null
+  overall_productivity_score: number | null
   work_minutes: number
   narrative: string | null
   is_partial: boolean

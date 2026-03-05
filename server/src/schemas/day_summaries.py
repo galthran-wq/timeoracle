@@ -37,6 +37,7 @@ class DaySummaryResponse(BaseModel):
     focus_sessions_25min: int
     focus_sessions_90min: int
     productivity_score: float | None
+    overall_productivity_score: float | None
     work_minutes: float
     narrative: str | None
     is_partial: bool
