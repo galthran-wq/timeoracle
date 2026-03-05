@@ -1,152 +1,218 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import uPlot from 'uplot'
-import 'uplot/dist/uPlot.min.css'
+import {
+  Chart,
+  LineController,
+  LineElement,
+  PointElement,
+  LinearScale,
+  TimeScale,
+  Filler,
+  Tooltip,
+} from 'chart.js'
+import 'chartjs-adapter-date-fns'
 import type { ProductivityPoint } from '@/types/productivityCurve'
+import type { TimelineEntry } from '@/types/timeline'
+
+Chart.register(LineController, LineElement, PointElement, LinearScale, TimeScale, Filler, Tooltip)
 
 const props = defineProps<{
   points: ProductivityPoint[]
+  entries: TimelineEntry[]
 }>()
 
-const chartEl = ref<HTMLDivElement | null>(null)
-let chart: uPlot | null = null
+const canvasEl = ref<HTMLCanvasElement | null>(null)
+let chart: Chart | null = null
+
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+function findEntry(timestamp: number): TimelineEntry | null {
+  for (const e of props.entries) {
+    const s = new Date(e.start_time).getTime()
+    const end = new Date(e.end_time).getTime()
+    if (timestamp >= s && timestamp < end) return e
+  }
+  return null
+}
+
+function buildData() {
+  const data: { x: number; y: number | null; color: string; entryLabel: string | null; entryDescription: string | null; category: string | null; depth: string | null; isWork: boolean }[] = []
+
+  const TEN_MIN = 10 * 60 * 1000
+  const GAP_THRESHOLD = 15 * 60 * 1000
+
+  for (let i = 0; i < props.points.length; i++) {
+    const p = props.points[i]
+    const ts = new Date(p.interval_start).getTime()
+
+    if (i > 0) {
+      const prevTs = new Date(props.points[i - 1].interval_start).getTime()
+      if (ts - prevTs > GAP_THRESHOLD) {
+        data.push({ x: prevTs + TEN_MIN, y: null, color: '', entryLabel: null, entryDescription: null, category: null, depth: null, isWork: false })
+      }
+    }
+
+    const entry = findEntry(ts)
+    const color = p.color || '#6B7280'
+
+    data.push({
+      x: ts,
+      y: p.productivity_score,
+      color,
+      entryLabel: entry?.label ?? null,
+      entryDescription: entry?.description ?? null,
+      category: p.category,
+      depth: p.depth,
+      isWork: p.is_work,
+    })
+  }
+
+  return data
+}
 
 function buildChart() {
-  if (!chartEl.value || !props.points.length) return
+  if (!canvasEl.value || !props.points.length) return
   if (chart) {
     chart.destroy()
     chart = null
   }
 
-  const timestamps: number[] = []
-  const scores: (number | null)[] = []
-  const pointColors: (string | null)[] = []
-  const isWork: boolean[] = []
+  const data = buildData()
 
-  for (const p of props.points) {
-    timestamps.push(new Date(p.interval_start).getTime() / 1000)
-    scores.push(p.productivity_score)
-    pointColors.push(p.color)
-    isWork.push(p.is_work)
-  }
-
-  const width = chartEl.value.clientWidth
-  const height = 220
-
-  const opts: uPlot.Options = {
-    width,
-    height,
-    cursor: {
-      show: true,
-      points: { show: true, size: 8, fill: '#0d7377' },
-    },
-    scales: {
-      x: { time: true },
-      y: { min: 0, max: 100 },
-    },
-    axes: [
-      {
-        stroke: 'rgba(150,150,150,0.6)',
-        grid: { stroke: 'rgba(150,150,150,0.1)' },
-        ticks: { stroke: 'rgba(150,150,150,0.2)' },
-      },
-      {
-        stroke: 'rgba(150,150,150,0.6)',
-        grid: { stroke: 'rgba(150,150,150,0.1)' },
-        ticks: { stroke: 'rgba(150,150,150,0.2)' },
-        values: (_: uPlot, vals: number[]) => vals.map((v) => String(Math.round(v))),
-      },
-    ],
-    series: [
-      {},
-      {
-        label: 'Productivity',
-        stroke: '#0d7377',
-        width: 2,
-        fill: (self: uPlot, seriesIdx: number) => {
-          const ctx = self.ctx
-          if (!ctx) return 'rgba(13,115,119,0.15)'
-
-          const plotTop = self.bbox.top / devicePixelRatio
-          const plotBot = (self.bbox.top + self.bbox.height) / devicePixelRatio
-
-          const grad = ctx.createLinearGradient(0, plotTop, 0, plotBot)
-          grad.addColorStop(0, 'rgba(13,115,119,0.3)')
-          grad.addColorStop(1, 'rgba(13,115,119,0.02)')
-          return grad
-        },
-        points: {
-          show: false,
-        },
-      },
-    ],
-    plugins: [
-      {
-        hooks: {
-          drawSeries: [
-            (u: uPlot, seriesIdx: number) => {
-              if (seriesIdx !== 1) return
-              const ctx = u.ctx
-              if (!ctx) return
-
-              const xData = u.data[0]
-              const yData = u.data[1]
-              if (!xData || !yData) return
-
-              for (let i = 0; i < xData.length; i++) {
-                const score = yData[i]
-                if (score == null) continue
-
-                const cx = Math.round(u.valToPos(xData[i], 'x', true))
-                const cy = Math.round(u.valToPos(score as number, 'y', true))
-                const color = pointColors[i]
-                if (!color) continue
-
-                const alpha = isWork[i] ? 0.9 : 0.4
-                ctx.beginPath()
-                ctx.arc(cx, cy, 4 * devicePixelRatio, 0, Math.PI * 2)
-                ctx.fillStyle = color.replace(/^#([0-9a-f]{6})$/i, (_, hex) => {
-                  const r = parseInt(hex.slice(0, 2), 16)
-                  const g = parseInt(hex.slice(2, 4), 16)
-                  const b = parseInt(hex.slice(4, 6), 16)
-                  return `rgba(${r},${g},${b},${alpha})`
-                })
-                ctx.fill()
-              }
+  chart = new Chart(canvasEl.value, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          data: data.map((d) => ({ x: d.x, y: d.y })),
+          fill: 'origin',
+          tension: 0.3,
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHitRadius: 12,
+          pointHoverRadius: 5,
+          spanGaps: false,
+          segment: {
+            borderColor: (ctx: any) => {
+              const i = ctx.p0DataIndex
+              return data[i]?.color || '#6B7280'
             },
-          ],
+            backgroundColor: (ctx: any) => {
+              const i = ctx.p0DataIndex
+              const d = data[i]
+              if (!d?.color) return 'rgba(107,114,128,0.15)'
+              const alpha = d.isWork ? 0.25 : 0.10
+              return hexToRgba(d.color, alpha)
+            },
+          },
+          pointBackgroundColor: (ctx: any) => {
+            const i = ctx.dataIndex
+            return data[i]?.color || '#6B7280'
+          },
+          pointBorderColor: (ctx: any) => {
+            const i = ctx.dataIndex
+            return data[i]?.color || '#6B7280'
+          },
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'nearest',
+        axis: 'x',
+        intersect: false,
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: {
+            unit: 'hour',
+            displayFormats: { hour: 'HH:mm' },
+            tooltipFormat: 'HH:mm',
+          },
+          grid: { color: 'rgba(150,150,150,0.08)' },
+          ticks: { color: 'rgba(150,150,150,0.6)', font: { size: 11 } },
+        },
+        y: {
+          min: 0,
+          max: 100,
+          grid: { color: 'rgba(150,150,150,0.08)' },
+          ticks: {
+            color: 'rgba(150,150,150,0.6)',
+            font: { size: 11 },
+            stepSize: 25,
+          },
         },
       },
-    ],
-  }
-
-  const data: uPlot.AlignedData = [
-    new Float64Array(timestamps),
-    scores.map((s) => (s == null ? null : s)) as any,
-  ]
-
-  chart = new uPlot(opts, data, chartEl.value)
-}
-
-function handleResize() {
-  if (chart && chartEl.value) {
-    chart.setSize({ width: chartEl.value.clientWidth, height: 220 })
-  }
+      plugins: {
+        tooltip: {
+          callbacks: {
+            title: (items: any[]) => {
+              if (!items.length) return ''
+              const i = items[0].dataIndex
+              const d = data[i]
+              if (!d) return ''
+              const time = new Date(d.x).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              return d.entryLabel ? `${time} — ${d.entryLabel}` : time
+            },
+            label: (item: any) => {
+              const i = item.dataIndex
+              const d = data[i]
+              if (!d || d.y == null) return ''
+              const parts = [`Score: ${Math.round(d.y)}`]
+              if (d.category) parts.push(d.category)
+              if (d.depth) parts.push(d.depth)
+              return parts.join('  ·  ')
+            },
+            afterBody: (items: any[]) => {
+              if (!items.length) return ''
+              const d = data[items[0].dataIndex]
+              if (!d?.entryDescription) return ''
+              const words = d.entryDescription.split(' ')
+              const lines: string[] = []
+              let line = ''
+              for (const w of words) {
+                if (line && (line + ' ' + w).length > 50) {
+                  lines.push(line)
+                  line = w
+                } else {
+                  line = line ? line + ' ' + w : w
+                }
+              }
+              if (line) lines.push(line)
+              return ['', ...lines]
+            },
+          },
+          backgroundColor: 'rgba(20,20,20,0.9)',
+          titleFont: { weight: 'bold' as const, size: 13 },
+          bodyFont: { size: 12 },
+          footerFont: { size: 11, weight: 'normal' as const },
+          padding: 10,
+          cornerRadius: 6,
+          maxWidth: 350,
+        },
+      },
+    },
+  })
 }
 
 watch(
-  () => props.points,
+  () => [props.points, props.entries],
   () => nextTick(buildChart),
   { deep: true },
 )
 
-onMounted(() => {
-  nextTick(buildChart)
-  window.addEventListener('resize', handleResize)
-})
+onMounted(() => nextTick(buildChart))
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
   if (chart) {
     chart.destroy()
     chart = null
@@ -155,12 +221,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="chartEl" class="productivity-curve" />
+  <div class="productivity-curve">
+    <canvas ref="canvasEl" />
+  </div>
 </template>
 
 <style scoped>
 .productivity-curve {
   width: 100%;
-  min-height: 220px;
+  height: 220px;
+  position: relative;
 }
 </style>

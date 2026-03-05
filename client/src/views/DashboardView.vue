@@ -161,7 +161,7 @@ usePolling(refreshAll, 60_000)
             </span>
           </div>
         </template>
-        <ProductivityCurve :points="todayCurve.points" />
+        <ProductivityCurve :points="todayCurve.points" :entries="todayEntries" />
       </NCard>
 
       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px">
