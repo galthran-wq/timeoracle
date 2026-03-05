@@ -8,6 +8,7 @@ import {
   NButton,
   NMenu,
   NSpin,
+  NSwitch,
   NTooltip,
   NIcon,
   NInput,
@@ -76,15 +77,8 @@ const tabOptions: MenuOption[] = [
   { label: 'Integrations', key: 'integrations' },
 ]
 
-const categoryTypeOptions = [
-  { label: 'Productive', value: 'productive' },
-  { label: 'Neutral', value: 'neutral' },
-  { label: 'Distraction', value: 'distraction' },
-]
-
 const newCatName = ref('')
 const newCatColor = ref('#78716c')
-const newCatType = ref<CategoryConfig['type']>('neutral')
 const newRule = ref('')
 
 const defaultCategories = ref<Record<string, CategoryConfig>>({})
@@ -112,10 +106,9 @@ function addCategory() {
     message.warning(`Category "${name}" already exists`)
     return
   }
-  editingCategories.value[name] = { color: newCatColor.value, type: newCatType.value }
+  editingCategories.value[name] = { color: newCatColor.value }
   newCatName.value = ''
   newCatColor.value = '#78716c'
-  newCatType.value = 'neutral'
 }
 
 function deprecateCategory(name: string) {
@@ -332,13 +325,6 @@ onMounted(loadConfig)
               >
                 <span class="color-swatch" :style="{ backgroundColor: cfg.color }" />
                 <span class="category-name">{{ name }}</span>
-                <NSelect
-                  :value="cfg.type"
-                  :options="categoryTypeOptions"
-                  size="small"
-                  style="width: 130px"
-                  @update:value="(v: CategoryConfig['type']) => (cfg.type = v)"
-                />
                 <NColorPicker
                   :value="cfg.color"
                   :modes="['hex']"
@@ -346,6 +332,16 @@ onMounted(loadConfig)
                   style="width: 80px"
                   @update:value="(v: string) => (cfg.color = v)"
                 />
+                <NTooltip>
+                  <template #trigger>
+                    <NSwitch
+                      :value="cfg.work !== false"
+                      size="small"
+                      @update:value="(v: boolean) => (cfg.work = v)"
+                    />
+                  </template>
+                  Work category
+                </NTooltip>
                 <NButton text size="small" @click="deprecateCategory(name)">
                   <template #icon><NIcon :size="16"><TrashOutline /></NIcon></template>
                 </NButton>
@@ -358,12 +354,6 @@ onMounted(loadConfig)
                   size="small"
                   style="width: 140px"
                   @keydown.enter.prevent="addCategory"
-                />
-                <NSelect
-                  v-model:value="newCatType"
-                  :options="categoryTypeOptions"
-                  size="small"
-                  style="width: 130px"
                 />
                 <NColorPicker
                   v-model:value="newCatColor"

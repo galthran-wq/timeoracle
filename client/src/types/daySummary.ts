@@ -1,6 +1,5 @@
 export interface CategoryBreakdownItem {
   category: string
-  type: string
   minutes: number
 }
 
@@ -14,12 +13,6 @@ export interface DaySummary {
   user_id: string
   date: string
   total_active_minutes: number
-  productive_minutes: number
-  neutral_minutes: number
-  distraction_minutes: number
-  uncategorized_minutes: number
-  focus_score: number | null
-  distraction_score: number | null
   longest_focus_minutes: number
   context_switches: number
   session_count: number
@@ -27,6 +20,17 @@ export interface DaySummary {
   top_category: string | null
   category_breakdown: CategoryBreakdownItem[] | null
   app_breakdown: AppBreakdownItem[] | null
+  deep_work_minutes: number
+  shallow_work_minutes: number
+  reactive_minutes: number
+  avg_focus_score: number | null
+  fragmentation_index: number | null
+  switches_per_hour: number | null
+  focus_sessions_25min: number
+  focus_sessions_90min: number
+  productivity_score: number | null
+  overall_productivity_score: number | null
+  work_minutes: number
   narrative: string | null
   is_partial: boolean
   created_at: string

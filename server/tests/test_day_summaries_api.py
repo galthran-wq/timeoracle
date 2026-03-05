@@ -54,8 +54,6 @@ class TestGetDaySummary:
         body = resp.json()
         assert body["date"] == "2026-03-01"
         assert body["total_active_minutes"] > 0
-        assert body["productive_minutes"] > 0
-        assert body["distraction_minutes"] > 0
         assert body["session_count"] == 0
         assert body["category_breakdown"] is not None
         assert len(body["category_breakdown"]) == 2
@@ -78,8 +76,6 @@ class TestForceGenerate:
         assert resp.status_code == 200
         body = resp.json()
         assert body["total_active_minutes"] == 150.0
-        assert body["productive_minutes"] == 120.0
-        assert body["distraction_minutes"] == 30.0
         assert body["is_partial"] is False
 
 

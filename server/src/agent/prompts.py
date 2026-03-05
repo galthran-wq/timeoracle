@@ -2,13 +2,13 @@ from datetime import date
 
 
 DEFAULT_CATEGORIES = {
-    "Work": {"color": "#3B82F6", "type": "productive"},
-    "Communication": {"color": "#8B5CF6", "type": "neutral"},
-    "Research": {"color": "#F59E0B", "type": "productive"},
-    "Entertainment": {"color": "#EF4444", "type": "distraction"},
-    "Health": {"color": "#10B981", "type": "neutral"},
-    "Personal": {"color": "#EC4899", "type": "neutral"},
-    "Admin": {"color": "#6B7280", "type": "neutral"},
+    "Work": {"color": "#3B82F6", "work": True},
+    "Communication": {"color": "#8B5CF6", "work": True},
+    "Research": {"color": "#F59E0B", "work": True},
+    "Entertainment": {"color": "#EF4444", "work": False},
+    "Health": {"color": "#10B981", "work": False},
+    "Personal": {"color": "#EC4899", "work": False},
+    "Admin": {"color": "#6B7280", "work": True},
 }
 
 
@@ -32,11 +32,9 @@ def build_system_prompt(
             if cfg.get("deprecated", False):
                 continue
             color = cfg.get("color", "#6B7280")
-            cat_type = cfg.get("type", "neutral")
         else:
             color = cfg
-            cat_type = "neutral"
-        category_lines.append(f"  - {name}: {color} ({cat_type})")
+        category_lines.append(f"  - {name}: {color}")
     category_list = "\n".join(category_lines)
 
     sections = []
@@ -69,13 +67,13 @@ The user has previously corrected these classifications. Apply these lessons con
 2. Call get_existing_timeline to see what timeline entries already exist (to avoid duplicates and respect user edits)
 3. Analyze the activity sessions and generate concise, human-readable timeline entries
 4. Call save_timeline_entries to persist your results
+5. Call save_productivity_curve with per-10-minute focus and depth assessments covering the same time range
 
 ## Categories and colors
 
 {category_list}
 
 Always assign one of these categories. Use the exact hex color for that category.
-The type (productive/neutral/distraction) indicates how this category affects the user's productivity metrics.
 
 {extra_sections}## Labeling rules
 
@@ -111,6 +109,49 @@ WRONG (splitting a single browser session by tabs):
 
 RIGHT (one entry for the browsing block):
   08:17-08:58 "Web browsing and research"
+
+## Productivity curve
+
+After saving timeline entries, you MUST also call save_productivity_curve with per-10-minute assessments covering the same time range.
+
+For each 10-minute interval within your timeline entries' time range:
+- Look at the raw activity sessions that fall within that specific 10-minute window
+- Assess focus_score (0.0-1.0) for just those 10 minutes — not the whole entry
+- Assess depth (deep/shallow/reactive) for just those 10 minutes
+
+The interval_start must be aligned to 10-minute boundaries (:00, :10, :20, :30, :40, :50).
+
+### focus_score (0.0 to 1.0)
+
+- 0.9-1.0: User stayed in one app/context for the full 10 minutes with almost no switching.
+- 0.7-0.9: Mostly focused with occasional brief switches. Switching between related tools (IDE + terminal + docs) counts as focused.
+- 0.5-0.7: Moderate focus with noticeable fragmentation — regular interruptions from unrelated apps.
+- 0.3-0.5: Significantly fragmented. Primary activity identifiable but substantial time on unrelated apps.
+- 0.1-0.3: Highly scattered. Multiple activities competing with no clear sustained focus.
+- 0.0-0.1: Essentially no focus — constant rapid switching.
+
+### depth ("deep", "shallow", or "reactive")
+
+- "deep": Requires sustained concentration and expertise. Examples: writing code, design work, debugging, learning technical skills. Would suffer significantly if interrupted.
+- "shallow": Routine, interruptible tasks. Examples: email triage, file organization, casual browsing. Low cognitive cost to interruption.
+- "reactive": Responding to incoming stimuli. Examples: chat/messaging, responding to notifications. Driven by external inputs.
+
+### Example
+
+If you created an entry "Coding in Cursor" from 09:00 to 10:30, provide curve points:
+  09:00 focus=0.90 depth=deep
+  09:10 focus=0.85 depth=deep
+  09:20 focus=0.55 depth=deep    ← user checked Telegram for 3 minutes
+  09:30 focus=0.90 depth=deep
+  09:40 focus=0.90 depth=deep
+  09:50 focus=0.80 depth=deep
+  10:00 focus=0.75 depth=deep
+  10:10 focus=0.60 depth=shallow  ← winding down, casual browsing
+  10:20 focus=0.40 depth=shallow
+
+This granularity matters — it reveals focus dips within longer work blocks.
+
+Only produce points for intervals that have activity data. Gaps with no activity → no points.
 
 ## Chat mode
 

@@ -5,12 +5,12 @@ export const CATEGORY_COLORS = [
 ]
 
 export const SEMANTIC_COLORS = {
-  productive: '#2d7a4f',
-  neutral: '#78716c',
-  distraction: '#b83230',
   focusGood: '#2d7a4f',
   focusFair: '#b8860b',
   focusBad: '#b83230',
+  deep: '#2d7a4f',
+  shallow: '#b8860b',
+  reactive: '#b83230',
 } as const
 
 export interface SessionColor {

@@ -7,8 +7,8 @@ from datetime import datetime
 from typing import Optional, Union
 
 
-CATEGORY_TYPES = {"productive", "neutral", "distraction"}
 HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+NON_WORK_DEFAULTS = {"Entertainment", "Personal", "Health"}
 
 
 def _validate_timezone(v: str) -> str:
@@ -40,21 +40,14 @@ def _validate_classification_rules(v: Optional[list[str]]) -> Optional[list[str]
 
 class CategoryConfig(BaseModel):
     color: str
-    type: str = "neutral"
     deprecated: bool = False
+    work: Optional[bool] = None
 
     @field_validator("color")
     @classmethod
     def validate_color(cls, v: str) -> str:
         if not HEX_COLOR_RE.match(v):
             raise ValueError(f"Invalid hex color: {v}")
-        return v
-
-    @field_validator("type")
-    @classmethod
-    def validate_type(cls, v: str) -> str:
-        if v not in CATEGORY_TYPES:
-            raise ValueError(f"type must be one of {CATEGORY_TYPES}")
         return v
 
 
@@ -84,6 +77,14 @@ class SessionConfig(BaseModel):
     def validate_classification_rules(cls, v: Optional[list[str]]) -> Optional[list[str]]:
         return _validate_classification_rules(v)
 
+    @model_validator(mode="after")
+    def normalize_categories(self):
+        if self.categories is not None:
+            for name, cfg in self.categories.items():
+                if cfg.work is None:
+                    cfg.work = name not in NON_WORK_DEFAULTS
+        return self
+
 
 class SessionConfigUpdate(BaseModel):
     merge_gap_seconds: Optional[int] = Field(default=None, ge=1, le=3600)
@@ -112,6 +113,14 @@ class SessionConfigUpdate(BaseModel):
     @classmethod
     def validate_classification_rules(cls, v: Optional[list[str]]) -> Optional[list[str]]:
         return _validate_classification_rules(v)
+
+    @model_validator(mode="after")
+    def normalize_categories(self):
+        if self.categories is not None:
+            for name, cfg in self.categories.items():
+                if cfg.work is None:
+                    cfg.work = name not in NON_WORK_DEFAULTS
+        return self
 
 
 class UserResponse(BaseModel):

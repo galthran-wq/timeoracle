@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.repositories.activity_events import ActivityEventRepository
 from src.repositories.agent_memories import AgentMemoryRepository
+from src.repositories.productivity_points import ProductivityPointRepository
 from src.repositories.timeline_entries import TimelineEntryRepository
 from src.repositories.chats import ChatRepository
 
@@ -25,3 +26,4 @@ class AgentDeps:
     event_queue: Optional[asyncio.Queue] = None
     memories: list[str] = field(default_factory=list)
     memory_repo: Optional[AgentMemoryRepository] = None
+    productivity_repo: Optional[ProductivityPointRepository] = None

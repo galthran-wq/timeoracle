@@ -15,6 +15,7 @@ from src.api.chat import router as chat_router
 from src.api.integrations import router as integrations_router
 from src.api.agent_memories import router as agent_memories_router
 from src.api.day_summaries import router as day_summaries_router
+from src.api.productivity_curve import router as productivity_curve_router
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ app.include_router(chat_router)
 app.include_router(integrations_router)
 app.include_router(agent_memories_router)
 app.include_router(day_summaries_router)
+app.include_router(productivity_curve_router)
 
 @app.get("/")
 async def root():

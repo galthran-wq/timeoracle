@@ -6,6 +6,7 @@ from .user_integrations import UserIntegrationModel
 from .integration_connect_tokens import IntegrationConnectTokenModel
 from .agent_memories import AgentMemoryModel
 from .day_summaries import DaySummaryModel
+from .productivity_points import ProductivityPointModel
 
 __all__ = [
     "UserModel",
@@ -16,4 +17,5 @@ __all__ = [
     "IntegrationConnectTokenModel",
     "AgentMemoryModel",
     "DaySummaryModel",
+    "ProductivityPointModel",
 ]

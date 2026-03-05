@@ -14,11 +14,11 @@ class TestBuildSystemPrompt:
         for cfg in DEFAULT_CATEGORIES.values():
             assert cfg["color"] in prompt
 
-    def test_contains_category_types(self):
+    def test_no_category_types_in_listing(self):
         prompt = build_system_prompt()
-        assert "productive" in prompt
-        assert "distraction" in prompt
-        assert "neutral" in prompt
+        assert "(productive)" not in prompt
+        assert "(distraction)" not in prompt
+        assert "(neutral)" not in prompt
 
     def test_no_date_context_when_none(self):
         prompt = build_system_prompt(None)
@@ -34,6 +34,7 @@ class TestBuildSystemPrompt:
         assert "get_activity_sessions" in prompt
         assert "get_existing_timeline" in prompt
         assert "save_timeline_entries" in prompt
+        assert "save_productivity_curve" in prompt
 
     def test_includes_labeling_rules(self):
         prompt = build_system_prompt()
@@ -44,14 +45,14 @@ class TestBuildSystemPrompt:
 
     def test_custom_categories(self):
         custom = {
-            "Coding": {"color": "#FF0000", "type": "productive"},
-            "Meetings": {"color": "#00FF00", "type": "neutral"},
+            "Coding": {"color": "#FF0000"},
+            "Meetings": {"color": "#00FF00"},
         }
         prompt = build_system_prompt(categories=custom)
         assert "Coding" in prompt
         assert "#FF0000" in prompt
         assert "Meetings" in prompt
-        assert "Work" not in prompt
+        assert "  - Work:" not in prompt
 
     def test_classification_rules_injected(self):
         rules = ["VS Code is always Work", "YouTube is Entertainment"]
@@ -91,3 +92,17 @@ class TestBuildSystemPrompt:
         )
         assert "5:00 America/New_York" in prompt
         assert "previous logical day" in prompt
+
+    def test_includes_productivity_curve_section(self):
+        prompt = build_system_prompt()
+        assert "Productivity curve" in prompt
+        assert "10-minute" in prompt
+        assert "interval_start" in prompt
+
+    def test_no_per_entry_focus_depth_instructions(self):
+        prompt = build_system_prompt()
+        assert "For each entry, you MUST also set focus_score" not in prompt
+
+    def test_default_categories_have_work_flag(self):
+        for name, cfg in DEFAULT_CATEGORIES.items():
+            assert "work" in cfg

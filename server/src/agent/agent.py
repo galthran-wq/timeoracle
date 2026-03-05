@@ -12,12 +12,14 @@ from src.agent.tools import (
     get_activity_sessions,
     get_existing_timeline,
     save_timeline_entries,
+    save_productivity_curve,
     save_memory,
 )
 from src.core.config import settings
 from src.repositories.activity_events import ActivityEventRepository
 from src.repositories.agent_memories import AgentMemoryRepository
 from src.repositories.chats import ChatRepository
+from src.repositories.productivity_points import ProductivityPointRepository
 from src.repositories.timeline_entries import TimelineEntryRepository
 
 logger = logging.getLogger(__name__)
@@ -41,6 +43,7 @@ async def dynamic_system_prompt(ctx: RunContext[AgentDeps]) -> str:
 agent.tool(get_activity_sessions)
 agent.tool(get_existing_timeline)
 agent.tool(save_timeline_entries)
+agent.tool(save_productivity_curve)
 agent.tool(save_memory)
 
 
@@ -71,6 +74,7 @@ def _build_deps(
         event_queue=event_queue,
         memories=memories or [],
         memory_repo=AgentMemoryRepository(session),
+        productivity_repo=ProductivityPointRepository(session),
     )
 
 

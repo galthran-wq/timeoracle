@@ -9,7 +9,9 @@ from src.agent.deps import AgentDeps
 from src.agent.prompts import DEFAULT_CATEGORIES
 from src.schemas.timeline_entries import TimelineEntryBulkItem
 from src.services.activity_session_generator import compute_sessions
+from src.services.category_utils import is_work_category
 from src.services.day_boundary import day_range_utc, logical_date_for_timestamp
+from src.services.productivity_score import compute_productivity_score
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,12 @@ class TimelineEntry(BaseModel):
     label: str = Field(description="Concise human-readable label (2-5 words)")
     description: str = Field(description="1-2 sentence notes on what was happening: apps, sites, tasks, topics")
     category: str | None = Field(default=None, description="One of the user's configured categories")
+
+
+class CurvePoint(BaseModel):
+    interval_start: str = Field(description="ISO 8601 datetime aligned to 10-min boundary (:00, :10, :20, :30, :40, :50)")
+    focus_score: float = Field(ge=0.0, le=1.0, description="Focus quality for this 10-min window")
+    depth: str = Field(pattern=r"^(deep|shallow|reactive)$", description="Cognitive depth for this 10-min window")
 
 
 async def _emit(ctx: RunContext[AgentDeps], event_type: str, data: dict):
@@ -279,6 +287,91 @@ async def save_timeline_entries(ctx: RunContext[AgentDeps], entries: list[Timeli
         "skipped": skipped,
         "errors": [e["message"] for e in errors] if errors else [],
     }
+
+
+async def save_productivity_curve(ctx: RunContext[AgentDeps], points: list[CurvePoint]) -> dict:
+    await _emit(ctx, "tool_call", {"name": "save_productivity_curve", "args": {"count": len(points)}})
+
+    if not points:
+        await _emit(ctx, "tool_result", {"name": "save_productivity_curve", "summary": "No points to save"})
+        return {"saved": 0, "errors": ["No points provided"]}
+
+    cfg = ctx.deps.user_session_config or {}
+    day_start_hour = cfg.get("day_start_hour", 0)
+    day_tz = cfg.get("timezone", "UTC")
+    cats = cfg.get("categories") or DEFAULT_CATEGORIES
+
+    parsed_points = []
+    errors = []
+    for i, pt in enumerate(points):
+        try:
+            interval_start = datetime.fromisoformat(pt.interval_start)
+            if interval_start.minute % 10 != 0 or interval_start.second != 0:
+                errors.append(f"Point {i}: interval_start must be aligned to 10-min boundary, got {pt.interval_start}")
+                continue
+
+            entry_date = logical_date_for_timestamp(interval_start, day_start_hour, day_tz)
+            parsed_points.append({
+                "interval_start": interval_start,
+                "date": entry_date,
+                "focus_score": pt.focus_score,
+                "depth": pt.depth,
+            })
+        except (ValueError, TypeError) as e:
+            errors.append(f"Point {i}: {e}")
+
+    if not parsed_points:
+        await _emit(ctx, "tool_result", {"name": "save_productivity_curve", "summary": "No valid points"})
+        return {"saved": 0, "errors": errors}
+
+    all_starts = [p["interval_start"] for p in parsed_points]
+    range_start = min(all_starts)
+    from datetime import timedelta
+    range_end = max(all_starts) + timedelta(minutes=10)
+
+    entries = await ctx.deps.timeline_repo.get_by_time_range(
+        ctx.deps.user_id, range_start, range_end, limit=500, offset=0, include_overlap=True,
+    )
+
+    db_points = []
+    for p in parsed_points:
+        interval_start = p["interval_start"]
+        interval_end = interval_start + timedelta(minutes=10)
+
+        covering_entry = None
+        for e in entries:
+            if e.start_time <= interval_start and e.end_time >= interval_end:
+                covering_entry = e
+                break
+            if e.start_time < interval_end and e.end_time > interval_start:
+                covering_entry = e
+                break
+
+        category = covering_entry.category if covering_entry else None
+        color = covering_entry.color if covering_entry else None
+        entry_id = covering_entry.id if covering_entry else None
+
+        score = compute_productivity_score(p["focus_score"], p["depth"])
+        work = is_work_category(category, cats)
+
+        db_points.append({
+            "user_id": ctx.deps.user_id,
+            "date": p["date"],
+            "interval_start": interval_start,
+            "focus_score": p["focus_score"],
+            "depth": p["depth"],
+            "productivity_score": score,
+            "category": category,
+            "color": color,
+            "is_work": work,
+            "timeline_entry_id": entry_id,
+        })
+
+    saved = await ctx.deps.productivity_repo.bulk_upsert(ctx.deps.user_id, db_points)
+
+    summary = f"Saved {saved} productivity points"
+    await _emit(ctx, "tool_result", {"name": "save_productivity_curve", "summary": summary})
+    return {"saved": saved, "errors": errors}
 
 
 class MemoryInput(BaseModel):
