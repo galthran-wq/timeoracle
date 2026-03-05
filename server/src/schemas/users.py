@@ -8,6 +8,7 @@ from typing import Optional, Union
 
 
 HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+NON_WORK_DEFAULTS = {"Entertainment", "Personal", "Health"}
 
 
 def _validate_timezone(v: str) -> str:
@@ -40,7 +41,7 @@ def _validate_classification_rules(v: Optional[list[str]]) -> Optional[list[str]
 class CategoryConfig(BaseModel):
     color: str
     deprecated: bool = False
-    work: bool = True
+    work: Optional[bool] = None
 
     @field_validator("color")
     @classmethod
@@ -76,6 +77,14 @@ class SessionConfig(BaseModel):
     def validate_classification_rules(cls, v: Optional[list[str]]) -> Optional[list[str]]:
         return _validate_classification_rules(v)
 
+    @model_validator(mode="after")
+    def normalize_categories(self):
+        if self.categories is not None:
+            for name, cfg in self.categories.items():
+                if cfg.work is None:
+                    cfg.work = name not in NON_WORK_DEFAULTS
+        return self
+
 
 class SessionConfigUpdate(BaseModel):
     merge_gap_seconds: Optional[int] = Field(default=None, ge=1, le=3600)
@@ -104,6 +113,14 @@ class SessionConfigUpdate(BaseModel):
     @classmethod
     def validate_classification_rules(cls, v: Optional[list[str]]) -> Optional[list[str]]:
         return _validate_classification_rules(v)
+
+    @model_validator(mode="after")
+    def normalize_categories(self):
+        if self.categories is not None:
+            for name, cfg in self.categories.items():
+                if cfg.work is None:
+                    cfg.work = name not in NON_WORK_DEFAULTS
+        return self
 
 
 class UserResponse(BaseModel):

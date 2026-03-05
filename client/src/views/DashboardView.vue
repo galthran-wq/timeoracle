@@ -286,7 +286,7 @@ const heatmapGrid = computed((): HeatmapGrid | null => {
   if (aggregatedCurve.value) {
     for (const b of aggregatedCurve.value.buckets) {
       const d = new Date(b.bucket_start)
-      const key = format(d, 'yyyy-MM-dd') + '-' + d.getUTCHours()
+      const key = format(d, 'yyyy-MM-dd') + '-' + d.getHours()
       bucketMap.set(key, b.avg_productivity_score)
     }
   }
@@ -366,10 +366,12 @@ function heatmapColor(score: number | null): string {
 
 function formatMinutes(mins: number): string {
   const rounded = Math.round(mins)
-  if (rounded < 60) return `${rounded}m`
-  const h = Math.floor(rounded / 60)
-  const m = rounded % 60
-  return m > 0 ? `${h}h ${m}m` : `${h}h`
+  const absMinutes = Math.abs(rounded)
+  if (absMinutes < 60) return `${rounded}m`
+  const h = Math.floor(absMinutes / 60)
+  const m = absMinutes % 60
+  const sign = rounded < 0 ? '-' : ''
+  return m > 0 ? `${sign}${h}h ${m}m` : `${sign}${h}h`
 }
 
 function formatScore(score: number | null): string {
