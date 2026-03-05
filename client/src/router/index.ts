@@ -5,6 +5,7 @@ import DashboardView from '@/views/DashboardView.vue'
 import ActivityView from '@/views/ActivityView.vue'
 import TimelineView from '@/views/TimelineView.vue'
 import SettingsView from '@/views/SettingsView.vue'
+import MetricsGuideView from '@/views/MetricsGuideView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -14,6 +15,7 @@ const router = createRouter({
     { path: '/activity', name: 'activity', component: ActivityView },
     { path: '/timeline', name: 'timeline', component: TimelineView },
     { path: '/settings', name: 'settings', component: SettingsView },
+    { path: '/guide/:page?', name: 'guide', component: MetricsGuideView },
   ],
 })
 

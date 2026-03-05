@@ -28,6 +28,7 @@ const menuOptions: MenuOption[] = [
   { label: 'Activity', key: 'activity' },
   { label: 'Timeline', key: 'timeline' },
   { label: 'Settings', key: 'settings' },
+  { label: 'How It Works', key: 'guide' },
 ]
 
 function onMenuSelect(key: string) {
