@@ -15,6 +15,7 @@ import {
   NSelect,
 } from 'naive-ui'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { format, subDays, addDays, subMonths, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
 import { formatDistanceToNow } from 'date-fns'
 import { useActivityStore } from '@/stores/activity'
@@ -31,6 +32,7 @@ import type { TimelineEntry } from '@/types/timeline'
 import type { DaySummary } from '@/types/daySummary'
 import type { ProductivityCurveResponse, AggregatedCurveResponse } from '@/types/productivityCurve'
 
+const { t } = useI18n()
 const router = useRouter()
 const activityStore = useActivityStore()
 const loading = ref(true)
@@ -51,18 +53,18 @@ const logicalToday = cfg ? getLogicalToday(cfg.day_start_hour, cfg.timezone) : f
 const selectedDate = ref(logicalToday)
 
 const DEFAULT_BUCKET: Record<PeriodMode, number> = { day: 10, week: 360, month: 1440 }
-const BUCKET_OPTIONS: Record<PeriodMode, { label: string; value: number }[]> = {
-  day: [{ label: '10 min', value: 10 }],
+const BUCKET_OPTIONS = computed<Record<PeriodMode, { label: string; value: number }[]>>(() => ({
+  day: [{ label: t('dashboard.bucket10min'), value: 10 }],
   week: [
-    { label: '1 hour', value: 60 },
-    { label: '3 hours', value: 180 },
-    { label: '6 hours', value: 360 },
+    { label: t('dashboard.bucket1hour'), value: 60 },
+    { label: t('dashboard.bucket3hours'), value: 180 },
+    { label: t('dashboard.bucket6hours'), value: 360 },
   ],
   month: [
-    { label: '6 hours', value: 360 },
-    { label: '1 day', value: 1440 },
+    { label: t('dashboard.bucket6hours'), value: 360 },
+    { label: t('dashboard.bucket1day'), value: 1440 },
   ],
-}
+}))
 const bucketMinutes = ref(DEFAULT_BUCKET.day)
 
 const dateRange = computed(() => {
@@ -86,7 +88,7 @@ const isActive = computed(() => {
 })
 
 const lastEventText = computed(() => {
-  if (!activityStore.status?.last_event_at) return 'No events yet'
+  if (!activityStore.status?.last_event_at) return t('dashboard.noEventsYet')
   return formatDistanceToNow(new Date(activityStore.status.last_event_at), { addSuffix: true })
 })
 
@@ -475,14 +477,14 @@ function deltaColor(key: string, diff: number): string {
   return positive ? '#22C55E' : '#EF4444'
 }
 
-const METRIC_DEFS = [
-  { key: 'activeTime', label: 'Active', tooltip: 'Total time with activity detected', format: formatMinutes, color: 'var(--to-brand)' },
-  { key: 'workMinutes', label: 'Work Time', tooltip: 'Total time on work categories', format: formatMinutes, color: '#0d7377' },
-  { key: 'deepWork', label: 'Deep Work', tooltip: 'Time in deep focus on complex tasks', format: formatMinutes, color: SEMANTIC_COLORS.deep },
-  { key: 'avgFocus', label: 'Focus', tooltip: 'Average focus quality', format: (v: number) => Math.round(v * 100) + '%', color: null },
-  { key: 'longestFocus', label: 'Best Streak', tooltip: 'Longest unbroken focus streak', format: formatMinutes, color: '#7c3aed' },
-  { key: 'contextSwitches', label: 'Switches', tooltip: 'Number of depth transitions', format: (v: number) => v.toString(), color: '#d97706' },
-] as const
+const METRIC_DEFS = computed(() => [
+  { key: 'activeTime', label: t('dashboard.metricActive'), tooltip: t('dashboard.tooltipActive'), format: formatMinutes, color: 'var(--to-brand)' },
+  { key: 'workMinutes', label: t('dashboard.metricWorkTime'), tooltip: t('dashboard.tooltipWorkTime'), format: formatMinutes, color: '#0d7377' },
+  { key: 'deepWork', label: t('dashboard.metricDeepWork'), tooltip: t('dashboard.tooltipDeepWork'), format: formatMinutes, color: SEMANTIC_COLORS.deep },
+  { key: 'avgFocus', label: t('dashboard.metricFocus'), tooltip: t('dashboard.tooltipFocus'), format: (v: number) => Math.round(v * 100) + '%', color: null },
+  { key: 'longestFocus', label: t('dashboard.metricBestStreak'), tooltip: t('dashboard.tooltipBestStreak'), format: formatMinutes, color: '#7c3aed' },
+  { key: 'contextSwitches', label: t('dashboard.metricSwitches'), tooltip: t('dashboard.tooltipSwitches'), format: (v: number) => v.toString(), color: '#d97706' },
+] as const)
 </script>
 
 <template>
@@ -490,23 +492,23 @@ const METRIC_DEFS = [
     <NSpace vertical :size="20">
       <div class="status-banner">
         <div class="status-dot" :class="isActive ? 'active' : 'inactive'" />
-        <NText style="font-weight: 500">Daemon {{ isActive ? 'active' : 'inactive' }}</NText>
+        <NText style="font-weight: 500">{{ t('dashboard.daemon') }} {{ isActive ? t('dashboard.active') : t('dashboard.inactive') }}</NText>
         <NText depth="3" style="font-size: 13px">{{ lastEventText }}</NText>
-        <NText depth="3" style="font-size: 13px">{{ activityStore.status?.events_today ?? 0 }} events today</NText>
+        <NText depth="3" style="font-size: 13px">{{ t('dashboard.eventsToday', { n: activityStore.status?.events_today ?? 0 }) }}</NText>
       </div>
 
       <div class="period-controls">
         <NButtonGroup size="small">
-          <NButton :type="periodMode === 'day' ? 'primary' : 'default'" @click="setPeriod('day')">Day</NButton>
-          <NButton :type="periodMode === 'week' ? 'primary' : 'default'" @click="setPeriod('week')">Week</NButton>
-          <NButton :type="periodMode === 'month' ? 'primary' : 'default'" @click="setPeriod('month')">Month</NButton>
+          <NButton :type="periodMode === 'day' ? 'primary' : 'default'" @click="setPeriod('day')">{{ t('dashboard.day') }}</NButton>
+          <NButton :type="periodMode === 'week' ? 'primary' : 'default'" @click="setPeriod('week')">{{ t('dashboard.week') }}</NButton>
+          <NButton :type="periodMode === 'month' ? 'primary' : 'default'" @click="setPeriod('month')">{{ t('dashboard.month') }}</NButton>
         </NButtonGroup>
         <div class="date-nav">
           <NButton text @click="navigateDate(-1)" style="font-size: 18px">&lsaquo;</NButton>
           <NText strong style="min-width: 140px; text-align: center">{{ periodLabel }}</NText>
           <NButton text @click="navigateDate(1)" style="font-size: 18px">&rsaquo;</NButton>
         </div>
-        <NButton size="small" secondary @click="goToday">Today</NButton>
+        <NButton size="small" secondary @click="goToday">{{ t('dashboard.today') }}</NButton>
         <NSelect
           v-if="periodMode !== 'day'"
           v-model:value="bucketMinutes"
@@ -524,7 +526,7 @@ const METRIC_DEFS = [
         <NCard size="small" class="curve-card">
           <template #header>
             <div style="display: flex; align-items: baseline; gap: 12px">
-              <span style="font-weight: 600">Productivity</span>
+              <span style="font-weight: 600">{{ t('dashboard.productivity') }}</span>
               <span
                 v-if="curveScores.productivity !== null"
                 style="font-size: 28px; font-weight: 700; color: var(--to-brand)"
@@ -536,10 +538,10 @@ const METRIC_DEFS = [
                     style="font-size: 16px; font-weight: 600; color: #7c3aed; margin-left: 8px"
                   >{{ Math.round(curveScores.performance!) }}</span>
                 </template>
-                Performance (work-only)
+                {{ t('dashboard.performance') }}
               </NTooltip>
               <span v-if="curveScores.workMinutes" style="font-size: 13px; opacity: 0.5; margin-left: auto">
-                {{ formatMinutes(curveScores.workMinutes) }} work
+                {{ formatMinutes(curveScores.workMinutes) }} {{ t('dashboard.work') }}
               </span>
             </div>
           </template>
@@ -558,7 +560,7 @@ const METRIC_DEFS = [
               :entries="entries"
             />
           </div>
-          <NEmpty v-else description="No data for this period" />
+          <NEmpty v-else :description="t('dashboard.noData')" />
         </NCard>
         <div v-if="heatmapGrid" class="heatmap-panel">
           <table class="heatmap-table">
@@ -579,7 +581,7 @@ const METRIC_DEFS = [
                         :style="{ backgroundColor: heatmapColor(score) }"
                       />
                     </template>
-                    {{ heatmapGrid.labels.get(`${ri}-${ci}`) }}: {{ score !== null ? Math.round(score) : 'no data' }}
+                    {{ heatmapGrid.labels.get(`${ri}-${ci}`) }}: {{ score !== null ? Math.round(score) : t('dashboard.noDataShort') }}
                   </NTooltip>
                 </td>
               </tr>
@@ -614,17 +616,18 @@ const METRIC_DEFS = [
 
       <div class="categories-timeline-row">
         <NCard v-if="categoryBreakdown.length" size="small" class="half-card">
-          <template #header><span style="font-weight: 600">Categories</span></template>
+          <template #header><span style="font-weight: 600">{{ t('dashboard.categories') }}</span></template>
           <CategoryBreakdownChart :items="categoryBreakdown" />
         </NCard>
 
-        <NCard title="Timeline" size="small" class="half-card">
+        <NCard size="small" class="half-card">
+          <template #header><span style="font-weight: 600">{{ t('dashboard.timelineTitle') }}</span></template>
           <template #header-extra>
             <NButton text type="primary" size="small" @click="router.push({ name: 'timeline' })">
-              View Calendar
+              {{ t('dashboard.viewCalendar') }}
             </NButton>
           </template>
-          <NEmpty v-if="!entries.length" description="No timeline entries" />
+          <NEmpty v-if="!entries.length" :description="t('dashboard.noTimeline')" />
           <template v-else>
             <NList :show-divider="false" style="margin: -4px 0">
               <NListItem v-for="entry in displayedEntries" :key="entry.id" class="list-item-compact">
@@ -649,7 +652,7 @@ const METRIC_DEFS = [
               style="margin-top: 4px"
               @click="showAllEntries = !showAllEntries"
             >
-              {{ showAllEntries ? 'Show less' : `Show all (${entries.length})` }}
+              {{ showAllEntries ? t('dashboard.showLess') : t('dashboard.showAll', { n: entries.length }) }}
             </NButton>
           </template>
         </NCard>

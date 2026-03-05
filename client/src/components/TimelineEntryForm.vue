@@ -10,6 +10,7 @@ import {
   NText,
   NTooltip,
 } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { set, addDays } from 'date-fns'
 import { formatISO } from 'date-fns'
 import type { TimelineEntry } from '@/types/timeline'
@@ -17,6 +18,8 @@ import { DEFAULT_ENTRY_COLOR } from '@/constants/palette'
 import type { CategoryConfig } from '@/constants/categories'
 import { getDefaultCategories } from '@/api/settings'
 import { useAuthStore } from '@/stores/auth'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   show: boolean
@@ -190,7 +193,7 @@ function close() {
           <form @submit.prevent="handleSave">
             <NInput
               v-model:value="label"
-              placeholder="What were you doing?"
+              :placeholder="t('entryForm.whatWereYouDoing')"
               size="large"
               :style="{ marginBottom: '12px' }"
             />
@@ -209,14 +212,14 @@ function close() {
                   <NSelect
                     :value="category || null"
                     :options="categoryOptions"
-                    placeholder="Category"
+                    :placeholder="t('entryForm.category')"
                     size="small"
                     filterable
                     clearable
                     @update:value="onCategoryChange"
                   />
                 </template>
-                Manage categories in Settings
+                {{ t('entryForm.manageCategoriesInSettings') }}
               </NTooltip>
             </div>
 
@@ -225,7 +228,7 @@ function close() {
                 v-model:value="description"
                 type="textarea"
                 :autosize="{ minRows: 2, maxRows: 10 }"
-                placeholder="Notes (optional)"
+                :placeholder="t('entryForm.notesOptional')"
                 size="small"
                 style="margin-bottom: 12px"
               />
@@ -239,18 +242,18 @@ function close() {
                   size="small"
                   @click="expanded = true"
                 >
-                  More options
+                  {{ t('entryForm.moreOptions') }}
                 </NButton>
                 <NPopconfirm v-if="isEdit" @positive-click="handleDelete">
                   <template #trigger>
-                    <NButton text type="error" size="small">Delete</NButton>
+                    <NButton text type="error" size="small">{{ t('entryForm.delete') }}</NButton>
                   </template>
-                  Delete this entry?
+                  {{ t('entryForm.deleteConfirm') }}
                 </NPopconfirm>
               </NSpace>
               <NSpace :size="8">
-                <NButton size="small" @click="close">Cancel</NButton>
-                <NButton type="primary" size="small" attr-type="submit" :disabled="!label">Save</NButton>
+                <NButton size="small" @click="close">{{ t('entryForm.cancel') }}</NButton>
+                <NButton type="primary" size="small" attr-type="submit" :disabled="!label">{{ t('entryForm.save') }}</NButton>
               </NSpace>
             </NSpace>
           </form>

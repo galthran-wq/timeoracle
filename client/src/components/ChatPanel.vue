@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed, onMounted } from 'vue'
 import { NInput, NButton, NText, NScrollbar, NIcon, NSpin } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { SendOutline, TimeOutline, AddOutline } from '@vicons/ionicons5'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useChatStore } from '@/stores/chat'
 import { useTimelineStore } from '@/stores/timeline'
+
+const { t } = useI18n()
 
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -79,14 +82,14 @@ function handleKeydown(e: KeyboardEvent) {
 <template>
   <div class="chat-panel">
     <div class="chat-header">
-      <NText strong>AI Agent</NText>
+      <NText strong>{{ t('chat.aiAgent') }}</NText>
       <div style="display: flex; align-items: center; gap: 4px">
         <NButton
           v-if="!isHistory && chatStore.activeChatId"
           quaternary
           size="tiny"
           @click="chatStore.newChat()"
-          title="New chat"
+          :title="t('chat.newChat')"
         >
           <template #icon>
             <NIcon :size="16"><AddOutline /></NIcon>
@@ -97,7 +100,7 @@ function handleKeydown(e: KeyboardEvent) {
           size="tiny"
           :type="isHistory ? 'primary' : 'default'"
           @click="isHistory ? chatStore.newChat() : chatStore.showHistory()"
-          :title="isHistory ? 'Back to chat' : 'Chat history'"
+          :title="isHistory ? t('chat.backToChat') : t('chat.chatHistory')"
         >
           <template #icon>
             <NIcon :size="16"><TimeOutline /></NIcon>
@@ -110,7 +113,7 @@ function handleKeydown(e: KeyboardEvent) {
       <NScrollbar class="chat-messages">
         <NSpin v-if="chatStore.loadingHistory" style="width: 100%; padding: 32px 0" />
         <div v-else-if="!chatStore.chatList.length" class="chat-empty">
-          <NText depth="3">No chat history yet.</NText>
+          <NText depth="3">{{ t('chat.noHistory') }}</NText>
         </div>
         <div
           v-else
@@ -134,7 +137,7 @@ function handleKeydown(e: KeyboardEvent) {
               overflow: hidden;
             "
           >
-            {{ chat.preview || 'No messages' }}
+            {{ chat.preview || t('chat.noMessages') }}
           </NText>
         </div>
       </NScrollbar>
@@ -144,7 +147,7 @@ function handleKeydown(e: KeyboardEvent) {
       <NScrollbar ref="scrollbarRef" class="chat-messages">
         <div v-if="!chatStore.messages.length" class="chat-empty">
           <NText depth="3">
-            Ask about your day, request fixes to timeline entries, or get explanations.
+            {{ t('chat.emptyPrompt') }}
           </NText>
         </div>
 
@@ -171,7 +174,7 @@ function handleKeydown(e: KeyboardEvent) {
           v-model:value="inputValue"
           type="textarea"
           :autosize="{ minRows: 1, maxRows: 4 }"
-          placeholder="Ask about your day..."
+          :placeholder="t('chat.inputPlaceholder')"
           :disabled="chatStore.streaming"
         />
         <NButton

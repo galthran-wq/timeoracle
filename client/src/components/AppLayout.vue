@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import {
   NLayout,
   NLayoutHeader,
@@ -10,12 +11,16 @@ import {
   NButton,
   NSwitch,
   NText,
+  NSelect,
 } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import LogoIcon from '@/components/LogoIcon.vue'
+import { LOCALE_OPTIONS } from '@/i18n'
+import type { SupportedLocale } from '@/i18n'
 
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -27,13 +32,13 @@ const isAuth = computed(() => authStore.isAuthenticated)
 
 const menuKey = computed(() => (route.name as string) ?? 'dashboard')
 
-const menuOptions: MenuOption[] = [
-  { label: 'Dashboard', key: 'dashboard' },
-  { label: 'Activity', key: 'activity' },
-  { label: 'Timeline', key: 'timeline' },
-  { label: 'Settings', key: 'settings' },
-  { label: 'How It Works', key: 'guide' },
-]
+const menuOptions = computed<MenuOption[]>(() => [
+  { label: t('nav.dashboard'), key: 'dashboard' },
+  { label: t('nav.activity'), key: 'activity' },
+  { label: t('nav.timeline'), key: 'timeline' },
+  { label: t('nav.settings'), key: 'settings' },
+  { label: t('nav.howItWorks'), key: 'guide' },
+])
 
 function onMenuSelect(key: string) {
   router.push({ name: key })
@@ -41,6 +46,11 @@ function onMenuSelect(key: string) {
 
 function onLogoClick() {
   router.push({ name: isAuth.value ? 'dashboard' : 'landing' })
+}
+
+function onLocaleChange(value: SupportedLocale) {
+  locale.value = value
+  localStorage.setItem('locale', value)
 }
 </script>
 
@@ -67,18 +77,26 @@ function onLogoClick() {
           v-if="!isAuth"
           class="nav-link"
           @click.prevent="router.push({ name: 'guide', params: { page: 'idea' } })"
-        >How It Works</a>
+        >{{ t('nav.howItWorks') }}</a>
         <NText v-if="isAuth" depth="3" style="font-size: 12px">{{ authStore.user?.email }}</NText>
         <NSwitch :value="themeStore.isDark" size="small" @update:value="themeStore.toggle">
-          <template #checked>Dark</template>
-          <template #unchecked>Light</template>
+          <template #checked>{{ t('nav.dark') }}</template>
+          <template #unchecked>{{ t('nav.light') }}</template>
         </NSwitch>
+        <NSelect
+          :value="locale"
+          :options="LOCALE_OPTIONS"
+          size="tiny"
+          :consistent-menu-width="false"
+          style="width: 60px"
+          @update:value="onLocaleChange"
+        />
         <a href="https://github.com/galthran-wq/digitalgulag" target="_blank" rel="noopener" class="github-icon" aria-label="GitHub">
           <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         </a>
         <div v-if="isAuth" class="header-divider" />
-        <NButton v-if="isAuth" text size="small" @click="authStore.logout">Logout</NButton>
-        <NButton v-if="!isAuth" size="small" type="primary" @click="router.push({ name: 'login' })">Login</NButton>
+        <NButton v-if="isAuth" text size="small" @click="authStore.logout">{{ t('nav.logout') }}</NButton>
+        <NButton v-if="!isAuth" size="small" type="primary" @click="router.push({ name: 'login' })">{{ t('nav.login') }}</NButton>
       </NSpace>
     </NLayoutHeader>
     <NLayoutContent

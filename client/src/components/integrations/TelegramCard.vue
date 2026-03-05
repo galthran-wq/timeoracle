@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { NCard, NButton, NSpace, NText, useMessage } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { useIntegrationsStore } from '@/stores/integrations'
 
+const { t } = useI18n()
 const store = useIntegrationsStore()
 const message = useMessage()
 
@@ -34,7 +36,7 @@ async function startConnect() {
         stopTimers()
         deepLink.value = null
         connecting.value = false
-        message.warning('Link expired. Click Connect to try again.')
+        message.warning(t('telegram.linkExpired'))
       }
     }, 1000)
 
@@ -44,11 +46,11 @@ async function startConnect() {
         stopTimers()
         deepLink.value = null
         connecting.value = false
-        message.success('Telegram connected!')
+        message.success(t('telegram.telegramConnected'))
       }
     }, 3000)
   } catch {
-    message.error('Failed to start Telegram connection')
+    message.error(t('telegram.failedToStart'))
     connecting.value = false
   }
 }
@@ -58,10 +60,10 @@ async function doDisconnect() {
   try {
     const res = await store.telegramDisconnect()
     if (res.success) {
-      message.success('Telegram disconnected')
+      message.success(t('telegram.telegramDisconnected'))
     }
   } catch {
-    message.error('Failed to disconnect')
+    message.error(t('telegram.failedToDisconnect'))
   } finally {
     disconnecting.value = false
   }
@@ -104,33 +106,33 @@ onUnmounted(() => stopTimers())
           </svg>
         </div>
         <div class="integration-info">
-          <div class="integration-name">Telegram</div>
+          <div class="integration-name">{{ t('telegram.name') }}</div>
           <NText v-if="isConnected" depth="3" class="integration-desc">
-            Connected as {{ displayName ?? 'Unknown' }}
-            <span v-if="connectedAt"> &middot; since {{ connectedAt }}</span>
+            {{ t('telegram.connectedAs', { name: displayName ?? 'Unknown' }) }}
+            <span v-if="connectedAt"> &middot; {{ t('telegram.since', { date: connectedAt }) }}</span>
           </NText>
           <NText v-else depth="3" class="integration-desc">
-            Connect to receive alerts from the guard bot
+            {{ t('telegram.connectPrompt') }}
           </NText>
         </div>
         <div class="integration-status">
-          <span v-if="isConnected" class="status-badge connected">Connected</span>
+          <span v-if="isConnected" class="status-badge connected">{{ t('telegram.connected') }}</span>
         </div>
       </div>
 
       <div v-if="deepLink && connecting" class="connect-flow">
         <div class="deep-link-box">
-          <NText depth="3">Open this link in Telegram to connect:</NText>
+          <NText depth="3">{{ t('telegram.openLink') }}</NText>
           <a :href="deepLink" target="_blank" rel="noopener" class="deep-link">{{ deepLink }}</a>
           <NText depth="3" class="expires-text">
-            Expires in {{ formatRemaining(remaining) }}
+            {{ t('telegram.expiresIn', { time: formatRemaining(remaining) }) }}
           </NText>
         </div>
         <NSpace :size="8">
           <NButton tag="a" :href="deepLink" target="_blank" type="primary" size="small">
-            Open in Telegram
+            {{ t('telegram.openInTelegram') }}
           </NButton>
-          <NButton size="small" @click="cancelConnect">Cancel</NButton>
+          <NButton size="small" @click="cancelConnect">{{ t('telegram.cancel') }}</NButton>
         </NSpace>
       </div>
 
@@ -142,7 +144,7 @@ onUnmounted(() => stopTimers())
           :loading="connecting"
           @click="startConnect"
         >
-          Connect
+          {{ t('telegram.connect') }}
         </NButton>
         <NButton
           v-else
@@ -150,7 +152,7 @@ onUnmounted(() => stopTimers())
           :loading="disconnecting"
           @click="doDisconnect"
         >
-          Disconnect
+          {{ t('telegram.disconnect') }}
         </NButton>
       </div>
     </div>
