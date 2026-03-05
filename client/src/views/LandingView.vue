@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { NButton } from 'naive-ui'
 import LogoIcon from '@/components/LogoIcon.vue'
 import ProductivityCurve from '@/components/ProductivityCurve.vue'
 import type { ProductivityPoint } from '@/types/productivityCurve'
 import type { TimelineEntry } from '@/types/timeline'
 
+const { t } = useI18n()
 const router = useRouter()
 
 const BASE_DATE = '2026-01-15'
@@ -54,14 +57,14 @@ const demoEntries: TimelineEntry[] = [
   { id: '6', user_id: '', date: BASE_DATE, start_time: T(11, 30), end_time: T(12, 0), label: 'YouTube & Reddit', description: 'Distracted browsing', category: 'Entertainment', color: '#EF4444', source: 'demo', source_summary: null, confidence: null, edited_by_user: false, created_at: '', updated_at: '' },
 ]
 
-const features = [
-  { title: 'Productivity Curve', desc: 'Your score plotted over time. Every 10 minutes, a number. The shape of your day — visible, measurable, undeniable.', page: 'curve' },
-  { title: 'AI Timeline', desc: 'Raw window switches become a human-readable story. What you did, when, and how well. Updated every hour.', page: 'timeline' },
-  { title: 'Categories & Rules', desc: 'You define what counts as work. Custom categories, plain-English classification rules. Your workflow, your rules.', page: 'categories' },
-  { title: 'Agent Chat', desc: 'Something wrong? Tell the agent. It reads your data, fixes mistakes, answers questions, and remembers for next time.', page: 'agent' },
-  { title: 'Integrations', desc: 'GitHub, health data, calendar, screen time. The more we know, the better we explain why some days work and others don\'t.', page: 'integrations' },
-  { title: 'Open Source', desc: 'Every line of code is public. Deploy it yourself. Use your own LLM. Full sovereignty, zero trust required.', page: 'security' },
-]
+const features = computed(() => [
+  { title: t('landing.featureProductivity'), desc: t('landing.featureProductivityDesc'), page: 'curve' },
+  { title: t('landing.featureTimeline'), desc: t('landing.featureTimelineDesc'), page: 'timeline' },
+  { title: t('landing.featureCategories'), desc: t('landing.featureCategoriesDesc'), page: 'categories' },
+  { title: t('landing.featureAgent'), desc: t('landing.featureAgentDesc'), page: 'agent' },
+  { title: t('landing.featureIntegrations'), desc: t('landing.featureIntegrationsDesc'), page: 'integrations' },
+  { title: t('landing.featureOpenSource'), desc: t('landing.featureOpenSourceDesc'), page: 'security' },
+])
 </script>
 
 <template>
@@ -69,54 +72,52 @@ const features = [
 
     <section class="hero">
       <LogoIcon :size="140" />
-      <h1 class="hero-title">DIGITAL GULAG</h1>
-      <p class="hero-tagline">The ultimate productivity monitoring system.</p>
-      <p class="hero-hook">
-        Have you ever spent an entire day at your computer and had no idea where the time went?
-      </p>
+      <h1 class="hero-title">{{ t('landing.title') }}</h1>
+      <p class="hero-tagline">{{ t('landing.tagline') }}</p>
+      <p class="hero-hook">{{ t('landing.hook') }}</p>
       <div class="hero-cta">
-        <NButton type="primary" size="large" @click="router.push({ name: 'login' })">Get Started</NButton>
-        <NButton size="large" secondary @click="router.push({ name: 'guide', params: { page: 'idea' } })">How It Works</NButton>
+        <NButton type="primary" size="large" @click="router.push({ name: 'login' })">{{ t('landing.getStarted') }}</NButton>
+        <NButton size="large" secondary @click="router.push({ name: 'guide', params: { page: 'idea' } })">{{ t('landing.howItWorks') }}</NButton>
       </div>
     </section>
 
     <section class="section problem">
-      <p>You don't know where your time goes. You can't explain why some days work and others don't.</p>
-      <p>You've tried to find patterns. You've tried to force yourself. You've watched the hours disappear into Slack, Reddit, YouTube — knowing you should be working.</p>
-      <p class="problem-punchline">We measure every aspect of your performance. Comprehensively, continuously, with zero manual input.</p>
+      <p>{{ t('landing.problem1') }}</p>
+      <p>{{ t('landing.problem2') }}</p>
+      <p class="problem-punchline">{{ t('landing.punchline') }}</p>
     </section>
 
     <section class="section steps">
-      <h2 class="section-title">How It Works</h2>
+      <h2 class="section-title">{{ t('landing.stepsTitle') }}</h2>
       <div class="steps-grid">
         <div class="step">
           <div class="step-number">1</div>
-          <div class="step-title">Monitor</div>
-          <p>A daemon on your machine captures window titles, idle state, and URLs. No keystrokes, no screenshots, no clipboard. Just enough to know what you're doing.</p>
+          <div class="step-title">{{ t('landing.step1title') }}</div>
+          <p>{{ t('landing.step1desc') }}</p>
         </div>
         <div class="step">
           <div class="step-number">2</div>
-          <div class="step-title">Analyze</div>
-          <p>Every 10 minutes, AI scores your focus and cognitive depth. It builds a timeline of your day in plain language. Not what apps you opened — what you actually did.</p>
+          <div class="step-title">{{ t('landing.step2title') }}</div>
+          <p>{{ t('landing.step2desc') }}</p>
         </div>
         <div class="step">
           <div class="step-number">3</div>
-          <div class="step-title">Improve</div>
-          <p>The dashboard shows the truth. The curve exposes your patterns. The agent helps you understand them. What you do with that information is up to you.</p>
+          <div class="step-title">{{ t('landing.step3title') }}</div>
+          <p>{{ t('landing.step3desc') }}</p>
         </div>
       </div>
     </section>
 
     <section class="section curve-section">
-      <h2 class="section-title">This Is What a Morning Looks Like</h2>
-      <p class="curve-subtitle">Deep focus building up. A dip into admin and chat. The recovery grind. Then distraction. Hover to explore.</p>
+      <h2 class="section-title">{{ t('landing.curveTitle') }}</h2>
+      <p class="curve-subtitle">{{ t('landing.curveSubtitle') }}</p>
       <div class="curve-demo">
         <ProductivityCurve :points="demoPoints" :entries="demoEntries" />
       </div>
     </section>
 
     <section class="section features">
-      <h2 class="section-title">Everything You Need</h2>
+      <h2 class="section-title">{{ t('landing.featuresTitle') }}</h2>
       <div class="features-grid">
         <a
           v-for="f in features"
@@ -131,9 +132,9 @@ const features = [
     </section>
 
     <section class="section cta-footer">
-      <p class="cta-line">Now close this page and go do something worth measuring.</p>
+      <p class="cta-line">{{ t('landing.ctaLine') }}</p>
       <div class="cta-buttons">
-        <NButton type="primary" size="large" @click="router.push({ name: 'login' })">Get Started</NButton>
+        <NButton type="primary" size="large" @click="router.push({ name: 'login' })">{{ t('landing.getStarted') }}</NButton>
       </div>
       <a href="https://github.com/galthran-wq/digitalgulag" target="_blank" rel="noopener" class="footer-github">
         <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>

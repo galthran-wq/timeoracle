@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { h, ref, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   NSpace,
   NDatePicker,
@@ -16,6 +17,7 @@ import { format, startOfDay, endOfDay } from 'date-fns'
 import { useActivityStore } from '@/stores/activity'
 import type { ActivityEvent, ActivityEventType } from '@/types/activity'
 
+const { t } = useI18n()
 const activityStore = useActivityStore()
 
 const PAGE_SIZE = 50
@@ -26,10 +28,10 @@ const appName = ref('')
 const page = ref(1)
 
 const typeOptions = [
-  { label: 'All Types', value: '' },
-  { label: 'Active Window', value: 'active_window' },
-  { label: 'Idle Start', value: 'idle_start' },
-  { label: 'Idle End', value: 'idle_end' },
+  { label: () => t('activity.allTypes'), value: '' },
+  { label: () => t('activity.activeWindow'), value: 'active_window' },
+  { label: () => t('activity.idleStart'), value: 'idle_start' },
+  { label: () => t('activity.idleEnd'), value: 'idle_end' },
 ]
 
 const tagTypes: Record<string, 'success' | 'warning' | 'info'> = {
@@ -40,13 +42,13 @@ const tagTypes: Record<string, 'success' | 'warning' | 'info'> = {
 
 const columns: DataTableColumn<ActivityEvent>[] = [
   {
-    title: 'Time',
+    title: () => t('activity.colTime'),
     key: 'timestamp',
     width: 140,
     render: (row) => format(new Date(row.timestamp), 'HH:mm:ss'),
   },
   {
-    title: 'Type',
+    title: () => t('activity.colType'),
     key: 'event_type',
     width: 140,
     render: (row) =>
@@ -54,9 +56,9 @@ const columns: DataTableColumn<ActivityEvent>[] = [
         row.event_type.replace('_', ' '),
       ),
   },
-  { title: 'App', key: 'app_name', width: 160, ellipsis: { tooltip: true } },
-  { title: 'Window Title', key: 'window_title', ellipsis: { tooltip: true } },
-  { title: 'URL', key: 'url', width: 200, ellipsis: { tooltip: true } },
+  { title: () => t('activity.colApp'), key: 'app_name', width: 160, ellipsis: { tooltip: true } },
+  { title: () => t('activity.colWindowTitle'), key: 'window_title', ellipsis: { tooltip: true } },
+  { title: () => t('activity.colUrl'), key: 'url', width: 200, ellipsis: { tooltip: true } },
 ]
 
 async function fetchData() {
@@ -83,7 +85,7 @@ onMounted(fetchData)
 
 <template>
   <NSpace vertical :size="16">
-    <div style="font-size: 15px; font-weight: 600">Activity Events</div>
+    <div style="font-size: 15px; font-weight: 600">{{ t('activity.title') }}</div>
     <NCard size="small">
       <NSpace vertical :size="16">
         <div class="filter-toolbar">
@@ -102,7 +104,7 @@ onMounted(fetchData)
             />
             <NInput
               v-model:value="appName"
-              placeholder="Filter by app name"
+              :placeholder="t('activity.filterByApp')"
               clearable
               style="width: 200px"
             />

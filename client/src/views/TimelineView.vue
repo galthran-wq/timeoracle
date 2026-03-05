@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { NSpace, NButton, NSpin, NText, NIcon, useMessage } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { ChatbubbleEllipsesOutline } from '@vicons/ionicons5'
 import { ScheduleXCalendar } from '@schedule-x/vue'
 import { createCalendar, viewDay, viewWeek } from '@schedule-x/calendar'
@@ -24,6 +25,7 @@ import { SESSION_PALETTE } from '@/constants/palette'
 
 import '@schedule-x/theme-default/dist/index.css'
 
+const { t } = useI18n()
 const message = useMessage()
 const timelineStore = useTimelineStore()
 const activityStore = useActivityStore()
@@ -138,7 +140,7 @@ const calendar = createCalendar({
           end_time: formatISO(new Date(end.epochMilliseconds)),
         })
       } catch (e) {
-        message.error(e instanceof ApiError ? e.message : 'Failed to update entry')
+        message.error(e instanceof ApiError ? e.message : t('timelineView.failedToUpdate'))
         await timelineStore.fetchEntries()
       }
     },
@@ -214,24 +216,24 @@ async function handleSave(data: {
     if (editingEntry.value) {
       const { date: _, ...updatePayload } = payload
       await timelineStore.updateEntry(editingEntry.value.id, updatePayload)
-      message.success('Entry updated')
+      message.success(t('timelineView.entryUpdated'))
     } else {
       await timelineStore.createEntry(payload)
-      message.success('Entry created')
+      message.success(t('timelineView.entryCreated'))
     }
     showForm.value = false
   } catch (e) {
-    message.error(e instanceof ApiError ? e.message : 'Failed to save entry')
+    message.error(e instanceof ApiError ? e.message : t('timelineView.failedToSave'))
   }
 }
 
 async function handleDelete(id: string) {
   try {
     await timelineStore.deleteEntry(id)
-    message.success('Entry deleted')
+    message.success(t('timelineView.entryDeleted'))
     showForm.value = false
   } catch (e) {
-    message.error(e instanceof ApiError ? e.message : 'Failed to delete entry')
+    message.error(e instanceof ApiError ? e.message : t('timelineView.failedToDelete'))
   }
 }
 
@@ -259,14 +261,14 @@ function openCreate(e: MouseEvent) {
         :type="showSessions ? 'default' : 'tertiary'"
         @click="toggleSessions"
       >
-        {{ showSessions ? 'Hide Sessions' : 'Show Sessions' }}
+        {{ showSessions ? t('timelineView.hideSessions') : t('timelineView.showSessions') }}
       </NButton>
-      <NButton type="primary" @click="openCreate">+ New Entry</NButton>
+      <NButton type="primary" @click="openCreate">{{ t('timelineView.newEntry') }}</NButton>
       <NButton :type="showChat ? 'primary' : 'default'" @click="toggleChat">
         <template #icon>
           <NIcon><ChatbubbleEllipsesOutline /></NIcon>
         </template>
-        Agent
+        {{ t('timelineView.agent') }}
       </NButton>
     </NSpace>
 

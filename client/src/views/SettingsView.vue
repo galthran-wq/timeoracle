@@ -16,12 +16,14 @@ import {
   useMessage,
 } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { InformationCircleOutline, TrashOutline } from '@vicons/ionicons5'
 import type { SessionConfig } from '@/types/settings'
 import type { CategoryConfig } from '@/constants/categories'
 import { getSessionConfig, updateSessionConfig, getDefaultCategories } from '@/api/settings'
 import TelegramCard from '@/components/integrations/TelegramCard.vue'
 
+const { t } = useI18n()
 const message = useMessage()
 
 const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -70,12 +72,12 @@ const saving = ref(false)
 
 const config = ref<SessionConfig>({ ...DEFAULTS })
 
-const tabOptions: MenuOption[] = [
-  { label: 'Activity Sessions', key: 'sessions' },
-  { label: 'Day Boundary', key: 'day-boundary' },
-  { label: 'Categories', key: 'categories' },
-  { label: 'Integrations', key: 'integrations' },
-]
+const tabOptions = computed<MenuOption[]>(() => [
+  { label: t('settings.tabSessions'), key: 'sessions' },
+  { label: t('settings.tabDayBoundary'), key: 'day-boundary' },
+  { label: t('settings.tabCategories'), key: 'categories' },
+  { label: t('settings.tabIntegrations'), key: 'integrations' },
+])
 
 const newCatName = ref('')
 const newCatColor = ref('#78716c')
@@ -103,7 +105,7 @@ function addCategory() {
   const name = newCatName.value.trim()
   if (!name) return
   if (editingCategories.value[name]) {
-    message.warning(`Category "${name}" already exists`)
+    message.warning(t('settings.categoryExists', { name }))
     return
   }
   editingCategories.value[name] = { color: newCatColor.value }
@@ -148,7 +150,7 @@ async function autoSave() {
     config.value = updated
     nextTick(() => { initializing = false })
   } catch {
-    message.error('Failed to save settings')
+    message.error(t('settings.failedToSave'))
   } finally {
     saving.value = false
   }
@@ -180,7 +182,7 @@ async function loadConfig() {
     defaultCategories.value = defaults
     initCategoryEditor()
   } catch {
-    message.error('Failed to load session config')
+    message.error(t('settings.failedToLoad'))
   } finally {
     loading.value = false
     nextTick(() => { initializing = false })
@@ -197,7 +199,7 @@ onMounted(loadConfig)
 <template>
   <div class="settings-layout">
     <div class="settings-sidebar">
-      <div class="settings-title">Settings</div>
+      <div class="settings-title">{{ t('settings.title') }}</div>
       <NMenu
         :value="activeTab"
         :options="tabOptions"
@@ -207,16 +209,16 @@ onMounted(loadConfig)
     <div class="settings-content">
       <NSpin :show="loading">
         <template v-if="activeTab === 'sessions'">
-          <NCard title="Activity Sessions">
+          <NCard :title="t('settings.tabSessions')">
             <NSpace vertical :size="24">
               <div class="setting-field">
                 <div class="setting-label">
-                  Merge gap (seconds)
+                  {{ t('settings.mergeGap') }}
                   <NTooltip>
                     <template #trigger>
                       <NIcon :size="16" class="info-icon"><InformationCircleOutline /></NIcon>
                     </template>
-                    If the same app appears again within this many seconds, the sessions are merged into one. Higher = fewer, longer sessions.
+                    {{ t('settings.mergeGapTooltip') }}
                   </NTooltip>
                 </div>
                 <NInputNumber
@@ -230,12 +232,12 @@ onMounted(loadConfig)
 
               <div class="setting-field">
                 <div class="setting-label">
-                  Min session duration (seconds)
+                  {{ t('settings.minSession') }}
                   <NTooltip>
                     <template #trigger>
                       <NIcon :size="16" class="info-icon"><InformationCircleOutline /></NIcon>
                     </template>
-                    Sessions shorter than this are discarded. Filters out accidental window switches.
+                    {{ t('settings.minSessionTooltip') }}
                   </NTooltip>
                 </div>
                 <NInputNumber
@@ -249,12 +251,12 @@ onMounted(loadConfig)
 
               <div class="setting-field">
                 <div class="setting-label">
-                  Noise threshold (seconds)
+                  {{ t('settings.noiseThreshold') }}
                   <NTooltip>
                     <template #trigger>
                       <NIcon :size="16" class="info-icon"><InformationCircleOutline /></NIcon>
                     </template>
-                    Sessions shorter than this that are no longer active get dropped as noise. Reduces clutter from brief app appearances.
+                    {{ t('settings.noiseThresholdTooltip') }}
                   </NTooltip>
                 </div>
                 <NInputNumber
@@ -266,21 +268,21 @@ onMounted(loadConfig)
                 />
               </div>
 
-              <NButton text size="small" @click="resetDefaults">Reset to defaults</NButton>
+              <NButton text size="small" @click="resetDefaults">{{ t('settings.resetDefaults') }}</NButton>
             </NSpace>
           </NCard>
         </template>
         <template v-else-if="activeTab === 'day-boundary'">
-          <NCard title="Day Boundary">
+          <NCard :title="t('settings.tabDayBoundary')">
             <NSpace vertical :size="24">
               <div class="setting-field">
                 <div class="setting-label">
-                  Day ends at
+                  {{ t('settings.dayEndsAt') }}
                   <NTooltip>
                     <template #trigger>
                       <NIcon :size="16" class="info-icon"><InformationCircleOutline /></NIcon>
                     </template>
-                    Late-night activity before this hour counts as the previous day.
+                    {{ t('settings.dayEndsAtTooltip') }}
                   </NTooltip>
                 </div>
                 <NInputNumber
@@ -296,12 +298,12 @@ onMounted(loadConfig)
 
               <div class="setting-field">
                 <div class="setting-label">
-                  Timezone
+                  {{ t('settings.timezone') }}
                   <NTooltip>
                     <template #trigger>
                       <NIcon :size="16" class="info-icon"><InformationCircleOutline /></NIcon>
                     </template>
-                    Your local timezone, used to determine when the day boundary occurs.
+                    {{ t('settings.timezoneTooltip') }}
                   </NTooltip>
                 </div>
                 <NSelect
@@ -316,7 +318,7 @@ onMounted(loadConfig)
           </NCard>
         </template>
         <template v-else-if="activeTab === 'categories'">
-          <NCard title="Categories">
+          <NCard :title="t('settings.tabCategories')">
             <NSpace vertical :size="16">
               <div
                 v-for="[name, cfg] in activeCategories"
@@ -340,7 +342,7 @@ onMounted(loadConfig)
                       @update:value="(v: boolean) => (cfg.work = v)"
                     />
                   </template>
-                  Work category
+                  {{ t('settings.workCategory') }}
                 </NTooltip>
                 <NButton text size="small" @click="deprecateCategory(name)">
                   <template #icon><NIcon :size="16"><TrashOutline /></NIcon></template>
@@ -350,7 +352,7 @@ onMounted(loadConfig)
               <div class="category-row add-row">
                 <NInput
                   v-model:value="newCatName"
-                  placeholder="New category"
+                  :placeholder="t('settings.newCategory')"
                   size="small"
                   style="width: 140px"
                   @keydown.enter.prevent="addCategory"
@@ -361,7 +363,7 @@ onMounted(loadConfig)
                   size="small"
                   style="width: 80px"
                 />
-                <NButton size="small" @click="addCategory">Add</NButton>
+                <NButton size="small" @click="addCategory">{{ t('settings.add') }}</NButton>
               </div>
 
               <template v-if="deprecatedCategories.length">
@@ -370,7 +372,7 @@ onMounted(loadConfig)
                   size="small"
                   @click="showDeprecated = !showDeprecated"
                 >
-                  {{ showDeprecated ? 'Hide' : 'Show' }} {{ deprecatedCategories.length }} hidden {{ deprecatedCategories.length === 1 ? 'category' : 'categories' }}
+                  {{ showDeprecated ? t('settings.hideHidden', { n: deprecatedCategories.length }) : t('settings.showHidden', { n: deprecatedCategories.length }) }}
                 </NButton>
                 <template v-if="showDeprecated">
                   <div
@@ -380,14 +382,14 @@ onMounted(loadConfig)
                   >
                     <span class="color-swatch" :style="{ backgroundColor: cfg.color }" />
                     <span class="category-name">{{ name }}</span>
-                    <NButton text size="small" @click="restoreCategory(name)">Restore</NButton>
+                    <NButton text size="small" @click="restoreCategory(name)">{{ t('settings.restore') }}</NButton>
                   </div>
                 </template>
               </template>
             </NSpace>
           </NCard>
 
-          <NCard title="Classification Rules" style="margin-top: 16px">
+          <NCard :title="t('settings.classificationRules')" style="margin-top: 16px">
             <NSpace vertical :size="12">
               <div v-for="(rule, i) in editingRules" :key="i" class="rule-row">
                 <span class="rule-text">{{ rule }}</span>
@@ -399,12 +401,12 @@ onMounted(loadConfig)
               <div class="rule-row">
                 <NInput
                   v-model:value="newRule"
-                  placeholder="e.g. VS Code is always Work"
+                  :placeholder="t('settings.rulePlaceholder')"
                   size="small"
                   style="flex: 1"
                   @keydown.enter.prevent="addRule"
                 />
-                <NButton size="small" @click="addRule">Add</NButton>
+                <NButton size="small" @click="addRule">{{ t('settings.add') }}</NButton>
               </div>
             </NSpace>
           </NCard>

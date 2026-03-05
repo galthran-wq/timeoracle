@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { NCard, NForm, NFormItem, NInput, NButton, NAlert, NText } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 import LogoIcon from '@/components/LogoIcon.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -24,7 +26,7 @@ async function handleSubmit() {
     if (e instanceof ApiError) {
       error.value = e.message
     } else {
-      error.value = 'An unexpected error occurred'
+      error.value = t('login.unexpectedError')
     }
   } finally {
     loading.value = false
@@ -37,20 +39,20 @@ async function handleSubmit() {
     <div style="text-align: center; margin-bottom: 32px">
       <LogoIcon :size="80" class="login-logo" />
       <div class="login-brand">digitalgulag</div>
-      <NText depth="3" style="font-size: 14px">AI-powered time tracking</NText>
+      <NText depth="3" style="font-size: 14px">{{ t('login.tagline') }}</NText>
     </div>
     <NCard class="login-card">
       <NForm @submit.prevent="handleSubmit">
         <NAlert v-if="error" type="error" :title="error" style="margin-bottom: 16px" closable />
-        <NFormItem label="Email">
+        <NFormItem :label="t('login.email')">
           <NInput v-model:value="email" type="text" placeholder="you@example.com" size="large" />
         </NFormItem>
-        <NFormItem label="Password">
+        <NFormItem :label="t('login.password')">
           <NInput
             v-model:value="password"
             type="password"
             show-password-on="click"
-            placeholder="Password"
+            :placeholder="t('login.password')"
             size="large"
           />
         </NFormItem>
@@ -63,7 +65,7 @@ async function handleSubmit() {
           size="large"
           style="margin-top: 8px"
         >
-          Sign In
+          {{ t('login.signIn') }}
         </NButton>
       </NForm>
     </NCard>
