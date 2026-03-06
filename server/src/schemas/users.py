@@ -61,6 +61,7 @@ class SessionConfig(BaseModel):
     timezone: str = Field(default="UTC")
     categories: Optional[dict[str, CategoryConfig]] = None
     classification_rules: Optional[list[str]] = None
+    language: Optional[str] = Field(default=None, pattern=r"^[a-z]{2}$")
 
     @field_validator("timezone")
     @classmethod
@@ -96,6 +97,7 @@ class SessionConfigUpdate(BaseModel):
     timezone: Optional[str] = None
     categories: Optional[dict[str, CategoryConfig]] = None
     classification_rules: Optional[list[str]] = None
+    language: Optional[str] = Field(default=None, pattern=r"^[a-z]{2}$")
 
     @field_validator("timezone")
     @classmethod

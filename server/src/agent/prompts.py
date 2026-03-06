@@ -12,6 +12,11 @@ DEFAULT_CATEGORIES = {
 }
 
 
+LANGUAGE_INSTRUCTIONS = {
+    "ru": "ВАЖНО: Генерируй ВСЕ метки (labels), описания (descriptions) и текстовые ответы на РУССКОМ языке. Названия приложений и технические термины можно оставлять на английском.",
+}
+
+
 def build_system_prompt(
     target_date: date | None = None,
     day_start_hour: int = 0,
@@ -19,6 +24,7 @@ def build_system_prompt(
     categories: dict | None = None,
     classification_rules: list[str] | None = None,
     memories: list[str] | None = None,
+    language: str | None = None,
 ) -> str:
     today = target_date or date.today()
     date_context = f"\nToday's date: {today.isoformat()} ({today.strftime('%A')})"
@@ -57,11 +63,22 @@ The user has previously corrected these classifications. Apply these lessons con
 {memories_text}
 """)
 
+    lang_instruction = ""
+    if language and language != "en":
+        lang_instruction = LANGUAGE_INSTRUCTIONS.get(
+            language,
+            f"\nIMPORTANT: Generate ALL labels, descriptions, and text responses in the language with ISO code '{language}'. Keep app names and technical terms in English.\n",
+        )
+        if not lang_instruction.startswith("\n"):
+            lang_instruction = f"\n{lang_instruction}\n"
+        else:
+            lang_instruction = f"\n{lang_instruction}\n"
+
     extra_sections = "\n".join(sections)
 
     return f"""You are an AI assistant that analyzes computer activity sessions and generates labeled timeline entries for a personal time tracker.
 {date_context}
-## Your workflow
+{lang_instruction}## Your workflow
 
 1. First call get_activity_sessions to fetch raw activity data for the requested date
 2. Call get_existing_timeline to see what timeline entries already exist (to avoid duplicates and respect user edits)

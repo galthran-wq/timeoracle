@@ -19,6 +19,7 @@ import { useThemeStore } from '@/stores/theme'
 import LogoIcon from '@/components/LogoIcon.vue'
 import { LOCALE_OPTIONS } from '@/i18n'
 import type { SupportedLocale } from '@/i18n'
+import { updateSessionConfig } from '@/api/settings'
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -51,6 +52,9 @@ function onLogoClick() {
 function onLocaleChange(value: SupportedLocale) {
   locale.value = value
   localStorage.setItem('locale', value)
+  if (authStore.isAuthenticated) {
+    updateSessionConfig({ language: value }).catch(() => {})
+  }
 }
 </script>
 

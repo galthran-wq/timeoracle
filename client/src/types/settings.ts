@@ -8,6 +8,7 @@ export interface SessionConfig {
   timezone: string
   categories?: Record<string, CategoryConfig>
   classification_rules?: string[]
+  language?: string
 }
 
 export type SessionConfigUpdate = Partial<SessionConfig>

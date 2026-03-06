@@ -37,6 +37,7 @@ async def dynamic_system_prompt(ctx: RunContext[AgentDeps]) -> str:
         categories=cfg.get("categories"),
         classification_rules=cfg.get("classification_rules"),
         memories=ctx.deps.memories or None,
+        language=cfg.get("language"),
     )
 
 

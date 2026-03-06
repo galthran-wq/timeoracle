@@ -18,6 +18,11 @@ app.use(i18n)
 
 const authStore = useAuthStore()
 authStore.init().then(() => {
+  const lang = authStore.user?.session_config?.language
+  if (lang && (lang === 'en' || lang === 'ru')) {
+    i18n.global.locale.value = lang
+    localStorage.setItem('locale', lang)
+  }
   app.use(router)
   app.mount('#app')
 })
